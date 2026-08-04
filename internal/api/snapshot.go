@@ -13,7 +13,7 @@ import (
 )
 
 func StartDailySnapshotTicker(framePipe <-chan image.Image, database db.Database) {
-	ticker := time.NewTicker(1 * time.Minute) // TODO: change to 24h for production
+	ticker := time.NewTicker(24 * time.Hour)
 	defer ticker.Stop()
 
 	var latestFrame image.Image
