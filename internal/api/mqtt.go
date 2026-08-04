@@ -18,6 +18,10 @@ func NewClient(telemetryPipe chan Telemetry, relayStatePipe chan RelayState, bro
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(broker)
 	opts.SetClientID(clientId)
+	if username := os.Getenv("MQTT_USERNAME"); username != "" {
+		opts.SetUsername(username)
+		opts.SetPassword(os.Getenv("MQTT_PASSWORD"))
+	}
 
 	// Initialize Client
 	mqttClient := mqtt.NewClient(opts)

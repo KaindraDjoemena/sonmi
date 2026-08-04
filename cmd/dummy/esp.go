@@ -105,6 +105,10 @@ func main() {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(os.Getenv("MQTT_BROKER"))
 	opts.SetClientID(os.Getenv("MQTT_ESP_CLIENT_ID"))
+	if username := os.Getenv("MQTT_USERNAME"); username != "" {
+		opts.SetUsername(username)
+		opts.SetPassword(os.Getenv("MQTT_PASSWORD"))
+	}
 
 	client := mqtt.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
