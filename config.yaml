@@ -1,0 +1,66 @@
+agent:
+  model: "gemini-3.6-flash"
+  temp: 0.1
+
+ecosystem:
+  # System prompts injected into sys_prompts/*.tmpl via {{ .SysPrompt }}
+  correction_sys_prompt: |
+    You are an autonomous AI botanist managing a closed-loop plant care system.
+    Your job is to analyze the past hour's sensor telemetry and the day's journal plan,
+    then issue precise actuator corrections to keep the plant within its ideal conditions.
+    Be conservative with watering. Output structured JSON only.
+  journal_sys_prompt: |
+    You are an autonomous AI botanist writing your daily scientific lab notes.
+    Review the full day's telemetry, actuator events, and past journal entries.
+    Produce a comprehensive journal entry and a specific plan for tomorrow's hourly agent.
+    Output structured JSON only.
+  botanical_profile: "Dwarf plumed variety. Very susceptible to root rot and premature flowering if stressed. Surface-sow only — seeds require light to germinate."
+  ideal_conditions:
+    temp_day_c_min: 21.0
+    temp_day_c_max: 30.0
+    temp_night_c_min: 18.0
+    temp_night_c_max: 25.0
+    humidity_veg_percent_min: 50.0
+    humidity_veg_percent_max: 70.0
+    humidity_flower_percent_min: 40.0
+    humidity_flower_percent_max: 60.0
+    light_hours_min: 14
+    light_hours_max: 16
+    ph_min: 6.0
+    ph_max: 7.0
+    min_soil_moisture_percent: 30.0  # Pump trigger threshold — water below this
+    max_soil_moisture_percent: 65.0  # Hard stop — never water above this
+    max_temperature_c: 32.0
+    max_humidity_percent: 85.0       # Above this: Botrytis risk
+
+# FAILSAFE CONSTANTS — Used when SystemMode == FAILSAFE (no valid plan exists).
+# These values are hardcoded and CANNOT be overridden by the LLM or database.
+# They represent the absolute safety floor for the plant.
+failsafe_defaults:
+  grow_light_on: true
+  light_on_hour_local: 6       # 06:00 local time
+  light_off_hour_local: 22     # 22:00 local time (16h photoperiod — required for Celosia vegetative growth)
+  water_pump_duration_s: 5     # Conservative for 3L fabric pot. Will not run if soil >= max.
+  relay_3_heating_pad_on: false
+  intake_fan_on: true
+  exhaust_fan_on: true
+  max_watering_events_per_day: 1  # Hard cap. Never waters more than once without a valid plan.
+
+# Resilience tuning — retry schedules and degradation thresholds.
+resilience:
+  max_correction_retries: 5
+  jitter_seconds: 30
+  max_journal_retries: 4
+  retry_delay_minutes: [30, 60, 120, 180]  # Scheduled retry offsets after initial failure
+  journal_retry_backoff_seconds: 120        # 2 minutes
+  degraded_alert: true                      # Send alert notification on any mode transition out of NOMINAL
+
+# ── Informational sections (not parsed by config.go) ──────────────────────────
+hardware_mapping:
+  relay_1: "Grow LED (On/Off)"
+  relay_2: "Water Pump (Trigger in seconds)"
+  relay_3: "Heating Pad (On/Off)"
+  relay_4: "Reserved"
+  relay_5: "Reserved"
+  relay_6: "Reserved"
+  pwm_fans: "Intake and Exhaust Fans (0-100%)"

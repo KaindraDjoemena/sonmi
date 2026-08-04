@@ -1,0 +1,47 @@
+{{ .SysPrompt }}
+
+<botanical_profile>
+{{ .BotanicalProfile }}
+</botanical_profile>
+
+<ideal_conditions>
+- Day Temperature Range: {{ .IdealConditions.TempDayCMin }}°C to {{ .IdealConditions.TempDayCMax }}°C
+- Night Temperature Range: {{ .IdealConditions.TempNightCMin }}°C to {{ .IdealConditions.TempNightCMax }}°C
+- Vegetative Humidity Range: {{ .IdealConditions.HumidityVegPercentMin }}% to {{ .IdealConditions.HumidityVegPercentMax }}%
+- Flowering Humidity Range: {{ .IdealConditions.HumidityFlowerPercentMin }}% to {{ .IdealConditions.HumidityFlowerPercentMax }}%
+- Light Cycle: {{ .IdealConditions.LightHoursMin }} to {{ .IdealConditions.LightHoursMax }} hours/day
+- Soil pH: {{ .IdealConditions.PhMin }} to {{ .IdealConditions.PhMax }}
+- Soil Moisture Pump Trigger: below {{ .IdealConditions.MaxSoilMoisturePercent }}% (do NOT water above this threshold)
+- Temperature Danger Ceiling: {{ .IdealConditions.MaxTemperatureC }}°C
+- Humidity Danger Ceiling: {{ .IdealConditions.MaxHumidityPercent }}%
+</ideal_conditions>
+
+<visual_context>
+{{ if .ImgToday }}Today's plant photo (T0) and yesterday's photo (T-1) are attached as image parts to this prompt. Use them to visually assess growth, leaf colour, posture, and any structural changes over the past 24 hours. Reference specific visual observations in your day_recap.{{ else }}No plant photos are available for today. Base your assessment on telemetry and relay event data only.{{ end }}
+</visual_context>
+
+<past_24_hours_telemetry>
+{{ range .FullDayTelemetryLog }}
+    - Time: {{ .Time.Format "2006-01-02 15:04:05" }} | Temp: {{ .Temp }}°C | Air Humidity: {{ .AirHumidity }}% | Soil Moisture: {{ .SoilHumidity }}%
+{{ else }}
+    No Telemetry Data Recorded In the Past 24 Hours
+{{ end }}
+</past_24_hours_telemetry>
+
+<past_24_hours_actuator_events>
+{{ range .FullDayRelayEventLog }}
+    - Time: {{ .Time.Format "2006-01-02 15:04:05" }} | Relay: {{ .Relay }} | Value: {{ .Value }} | Rationale: {{ .Rationale }}
+{{ else }}
+    No Actuator Events Recorded In the Past 24 Hours
+{{ end }}
+</past_24_hours_actuator_events>
+
+<past_journal_entries>
+{{ range .PastJournals }}
+    - Date: {{ .Date.Format "2006-01-02" }}
+      Notes: {{ .LabNotes }}
+      Strategy: {{ .PlanForTomorrow }}
+{{ else }}
+    No Past Journals Available
+{{ end }}
+</past_journal_entries>

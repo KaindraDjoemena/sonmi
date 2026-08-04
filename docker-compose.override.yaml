@@ -1,0 +1,26 @@
+services:
+  backend:
+    environment:
+      - APP_ENV=local
+    env_file:
+      - .env.local
+
+  mosquitto:
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - /dev/null:/mosquitto/config/passwd
+
+  dummy:
+    build:
+      context: .
+      dockerfile: Dockerfile.dummy
+    environment:
+      - MQTT_BROKER=tcp://mosquitto:1883
+      - MQTT_ESP_CLIENT_ID=celosia_bucket_esp32_dummy
+      - MQTT_TOPIC_TELEMETRY=celosia_bucket/telemetry
+      - MQTT_TOPIC_COMMANDS=celosia_bucket/commands
+      - MQTT_TOPIC_RELAY_STATE=celosia_bucket/relay_state
+    depends_on:
+      - mosquitto

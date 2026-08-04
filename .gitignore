@@ -1,0 +1,16 @@
+.env.*
+!.env.example
+
+sonmi-data/
+mosquitto/config/passwd
+
+.ssh/
+
+*.db
+.lazysql.toml
+
+*.exe
+
+
+plans/
+.esper/

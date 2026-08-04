@@ -1,0 +1,37 @@
+{{ .SysPrompt }}
+
+<botanical_profile>
+{{ .BotanicalProfile }}
+</botanical_profile>
+
+<ideal_conditions>
+- Day Temperature Range: {{ .IdealConditions.TempDayCMin }}°C to {{ .IdealConditions.TempDayCMax }}°C
+- Night Temperature Range: {{ .IdealConditions.TempNightCMin }}°C to {{ .IdealConditions.TempNightCMax }}°C
+- Vegetative Humidity Range: {{ .IdealConditions.HumidityVegPercentMin }}% to {{ .IdealConditions.HumidityVegPercentMax }}%
+- Flowering Humidity Range: {{ .IdealConditions.HumidityFlowerPercentMin }}% to {{ .IdealConditions.HumidityFlowerPercentMax }}%
+- Light Cycle: {{ .IdealConditions.LightHoursMin }} to {{ .IdealConditions.LightHoursMax }} hours/day
+- Soil pH: {{ .IdealConditions.PhMin }} to {{ .IdealConditions.PhMax }}
+- Soil Moisture Pump Trigger: below {{ .IdealConditions.MaxSoilMoisturePercent }}% (do NOT water above this threshold)
+- Temperature Danger Ceiling: {{ .IdealConditions.MaxTemperatureC }}°C
+- Humidity Danger Ceiling: {{ .IdealConditions.MaxHumidityPercent }}%
+</ideal_conditions>
+
+<strategy_for_today>
+{{ .TodaysStrategy }}
+</strategy_for_today>
+
+<special_instructions>
+{{ .SpecialInstructions }}
+</special_instructions>
+
+<current_system_state>
+    Time: {{ .LatestSysLog.Time.Format "2006-01-02 15:04:05" }} | State: {{ .LatestSysLog.State }}
+</current_system_state>
+
+<past_hour_telemetry_logs>
+{{ range .LatestTelemetryLog }}
+    - Time: {{ .Time.Format "2006-01-02 15:04:05" }} | Temp: {{ .Temp }}°C | Air Humidity: {{ .AirHumidity }}% | Soil Moisture: {{ .SoilHumidity }}%
+{{ else }}
+    No Telemetry Data Recorded In the Past Hour
+{{ end }}
+</past_hour_telemetry_logs>
