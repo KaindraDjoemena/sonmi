@@ -159,7 +159,7 @@ func newCorrectionContext(d db.Database, cfg *config.Config) (*correctionContext
 
 	// stale journal handling
 	if len(pastJournals) > 0 {
-		if pastJournals[0].IsStale || pastJournals[0].ValidForDate != db.FormatTime(time.Now()) {
+		if pastJournals[0].IsStale || pastJournals[0].ValidForDate != time.Now().Format(time.DateOnly) {
 
 			// stale journal
 			db.SystemStateRow{State: db.StateJournalDegraded, Time: time.Now()}.Insert(d)

@@ -44,7 +44,7 @@ func StartHTTPServer(addr string, framePipe chan image.Image) {
 		Handler:        rootMux,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1,
+		MaxHeaderBytes: 1 << 20, // 1MB
 	}
 
 	log.Print("Initialized HTTP Server")
@@ -64,6 +64,10 @@ func StartHTTPServer(addr string, framePipe chan image.Image) {
 
 // ///////////////////////// HELPERS /////////////////////////////////////////
 func isAuthorized(header http.Header, field string, key string) bool {
+	if key == "" {
+		return false
+	}
+
 	if authKey := header.Get(field); authKey != key {
 		return false
 	}

@@ -1,0 +1,8 @@
+.git
+firmware
+plans
+reference_docs
+sonmi-data
+*.db
+.env
+.env.*

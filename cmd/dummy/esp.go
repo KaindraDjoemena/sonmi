@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
@@ -32,7 +31,7 @@ type DummyRelayState struct {
 func startDummyStream(folderPath string, serverAddr string, interval time.Duration) {
 	entries, err := os.ReadDir(folderPath)
 	if err != nil {
-		fmt.Println("Stream: failed to read folder:", err)
+		log.Fatalln("Stream: failed to read folder:", err)
 		return
 	}
 
@@ -48,25 +47,25 @@ func startDummyStream(folderPath string, serverAddr string, interval time.Durati
 	}
 
 	if len(images) == 0 {
-		fmt.Println("Stream: no JPEG images found in", folderPath)
+		log.Println("Stream: no JPEG images found in ", folderPath)
 		return
 	}
 
-	fmt.Printf("Stream: cycling through %d images at %s\n", len(images), serverAddr)
+	log.Printf("Stream: cycling through %d images at %s\n", len(images), serverAddr)
 
 	for i := 0; ; i++ {
 		path := images[i%len(images)]
 
 		data, err := os.ReadFile(path)
 		if err != nil {
-			fmt.Println("Stream: failed to read image:", err)
+			log.Fatalln("Stream: failed to read image:", err)
 			time.Sleep(interval)
 			continue
 		}
 
 		req, err := http.NewRequest(http.MethodPost, serverAddr+"/stream", bytes.NewReader(data))
 		if err != nil {
-			fmt.Println("Stream: failed to create request:", err)
+			log.Fatalln("Stream: failed to create request:", err)
 			time.Sleep(interval)
 			continue
 		}
@@ -75,13 +74,13 @@ func startDummyStream(folderPath string, serverAddr string, interval time.Durati
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			fmt.Println("Stream: POST failed:", err)
+			log.Fatalln("Stream: POST failed:", err)
 			time.Sleep(interval)
 			continue
 		}
 		resp.Body.Close()
 
-		fmt.Printf("Stream: posted %s\n", filepath.Base(path))
+		log.Printf("Stream: posted %s\n", filepath.Base(path))
 		time.Sleep(interval)
 	}
 }
@@ -114,7 +113,7 @@ func main() {
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		panic(token.Error())
 	}
-	fmt.Println("Dummy ESP32 Connected to Cloud! Pumping data...")
+	log.Println("Dummy ESP32 Connected to Cloud! Pumping data...")
 
 	if *streamFolder != "" {
 		go startDummyStream(*streamFolder, *streamAddr, *streamInterval)
@@ -132,7 +131,7 @@ func main() {
 		}
 		if payload, err := json.Marshal(rs); err == nil {
 			client.Publish(os.Getenv("MQTT_TOPIC_RELAY_STATE"), 1, false, payload)
-			fmt.Printf("Dummy ESP32: relay state published → %s=%v (mode=%s)\n", relay, value, mode)
+			log.Printf("Dummy ESP32: relay state published → %s=%v (mode=%s)\n", relay, value, mode)
 		}
 	}
 
@@ -200,13 +199,13 @@ func main() {
 
 		jsonPayload, err := json.Marshal(payload)
 		if err != nil {
-			fmt.Println("Failed to marshal payload:", err)
+			log.Println("Failed to marshal payload:", err)
 			continue
 		}
 
 		client.Publish(os.Getenv("MQTT_TOPIC_TELEMETRY"), 1, false, jsonPayload)
 
-		fmt.Println("Sent:", payload)
+		log.Println("Sent:", payload)
 
 		time.Sleep(*interval)
 	}

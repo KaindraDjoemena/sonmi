@@ -56,7 +56,7 @@ type Database struct {
 }
 
 func NewDatabase(p string) (Database, error) {
-	dbConn, err := sql.Open("sqlite", p)
+	dbConn, err := sql.Open("sqlite", p+"?_pragma=busy_timeout(5000)")
 	if err != nil {
 		return Database{}, err
 	}
@@ -158,7 +158,7 @@ func (d Database) SelectNTelemetryRows(n uint) ([]SensorTelemetryRow, error) {
 }
 
 func (d Database) SelectPastNHourTelemetryRows(n uint) ([]SensorTelemetryRow, error) {
-	cutoff := time.Now().UTC().Add(-time.Duration(n) * time.Hour)
+	cutoff := time.Now().Add(-time.Duration(n) * time.Hour)
 	cutoffStr := FormatTime(cutoff)
 
 	query := fmt.Sprintf(`SELECT id, temp, air_humidity, soil_humidity, time FROM %s WHERE time >= ? ORDER BY time DESC`, TableSensorTelemetries)
@@ -310,7 +310,7 @@ func (d Database) SelectAllRelayEventRows() ([]RelayEventRow, error) {
 }
 
 func (d Database) SelectPastNHourRelayEventRows(n uint) ([]RelayEventRow, error) {
-	cutoff := time.Now().UTC().Add(-time.Duration(n) * time.Hour)
+	cutoff := time.Now().Add(-time.Duration(n) * time.Hour)
 	cutoffStr := FormatTime(cutoff)
 
 	query := fmt.Sprintf(`SELECT id, relay, mode, value, rationale, time FROM %s WHERE time >= ? ORDER BY time DESC`, TableRelayEvents)
@@ -391,7 +391,7 @@ func (r SystemStateRow) Insert(d Database) error {
 }
 
 func (d Database) SelectPastNHourSystemRows(n uint) ([]SystemStateRow, error) {
-	cutoff := time.Now().UTC().Add(-time.Duration(n) * time.Hour)
+	cutoff := time.Now().Add(-time.Duration(n) * time.Hour)
 	cutoffStr := FormatTime(cutoff)
 
 	query := fmt.Sprintf(`SELECT id, state, time FROM %s WHERE time >= ? ORDER BY time DESC`, TableSystemStates)
@@ -484,7 +484,7 @@ func (r JournalEntryRow) Insert(d Database) error {
 }
 
 func (d Database) SelectPastNDayJournalEntryRows(n uint) ([]JournalEntryRow, error) {
-	cutoff := time.Now().UTC().Add(-time.Duration(24*n) * time.Hour)
+	cutoff := time.Now().Add(-time.Duration(24*n) * time.Hour)
 	cutoffStr := FormatTime(cutoff)
 
 	query := fmt.Sprintf(`SELECT id, day_recap, plan_for_tomorrow, safe_defaults_json, agent_musings, is_stale, valid_for_date, img_url, time from %s WHERE time >= ? ORDER BY time DESC`, TableJournalEntries)
@@ -569,7 +569,9 @@ func (d Database) ConsumeReadyRetryJob() (*RetryJobRow, error) {
 
 	deleteQuery := fmt.Sprintf(`DELETE FROM %s WHERE id = ?`, TableRetryQueue)
 
-	d.conn.Exec(deleteQuery, job.Id)
+	if _, err := d.conn.Exec(deleteQuery, job.Id); err != nil {
+		return nil, err
+	}
 
 	return &job, nil
 }

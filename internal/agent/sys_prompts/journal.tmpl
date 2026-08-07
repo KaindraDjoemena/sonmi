@@ -38,8 +38,8 @@
 
 <past_journal_entries>
 {{ range .PastJournals }}
-    - Date: {{ .Date.Format "2006-01-02" }}
-      Notes: {{ .LabNotes }}
+    - Date: {{ .Time.Format "2006-01-02" }}
+      Notes: {{ .DayRecap }}
       Strategy: {{ .PlanForTomorrow }}
 {{ else }}
     No Past Journals Available

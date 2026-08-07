@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"database/sql"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -9,12 +11,12 @@ import (
 	"sonmi/internal/db"
 )
 
-// HOURLY CORRECTION LOOP
+// CORRECTION LOOP
 // 1. generate correction context for agent
 // 2. if (1) passes, we prompt the agent,   otherwise enter failsafe mode: [enterFailsafeMode]
 // 3. if (2) passes, we execute correction, otherwise enter failsafe mode: [enterFailsafeMode]
 func StartCorrectionLoop(database db.Database, c api.DeviceController, cfg *config.Config) {
-	ticker := time.NewTicker(1 * time.Hour)
+	ticker := time.NewTicker(2 * time.Hour)
 	defer ticker.Stop()
 
 	for {
@@ -44,7 +46,7 @@ func StartCorrectionLoop(database db.Database, c api.DeviceController, cfg *conf
 		}
 
 		currentSysState, err := database.SelectCurrentSystemState()
-		if err == nil && currentSysState.State != db.StateNominal {
+		if errors.Is(err, sql.ErrNoRows) || (err == nil && currentSysState.State != db.StateNominal) {
 			sysRow := db.SystemStateRow{
 				State: db.StateNominal,
 				Time:  time.Now(),
@@ -137,7 +139,17 @@ func enterFailsafeMode(database db.Database, c api.DeviceController, cfg *config
 	sysRow := db.SystemStateRow{State: db.StateFailsafe, Time: time.Now()}
 	sysRow.Insert(database)
 
-	c.ToggleWaterPump(cfg.FailsafeDefaults.WaterPumpDurationS, db.ModeFailsafe, rationale)
+	waterOK := true
+	if telemetry, err := database.SelectPastNHourTelemetryRows(1); err == nil && len(telemetry) > 0 {
+		waterOK = telemetry[0].SoilHumidity <= cfg.Ecosystem.IdealConditions.MaxSoilMoisturePercent
+	}
+
+	if waterOK {
+		if err := database.DecrementWateringBudget(time.Now().Format(time.DateOnly), cfg.FailsafeDefaults.MaxWateringEventsPerDay); err == nil {
+			c.ToggleWaterPump(cfg.FailsafeDefaults.WaterPumpDurationS, db.ModeFailsafe, rationale)
+		}
+	}
+
 	c.ToggleGrowLight(cfg.FailsafeDefaults.GrowLightOn, db.ModeFailsafe, rationale)
 	c.ToggleIntakeFan(cfg.FailsafeDefaults.IntakeFanOn, db.ModeFailsafe, rationale)
 	c.ToggleExhaustFan(cfg.FailsafeDefaults.ExhaustFanOn, db.ModeFailsafe, rationale)

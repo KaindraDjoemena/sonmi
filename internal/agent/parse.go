@@ -25,6 +25,9 @@ type relayAction func(correction correctionResponse, c api.DeviceController, dat
 
 var actionMap = map[string]relayAction{
 	string(db.RelayWaterPump): func(correction correctionResponse, c api.DeviceController, database db.Database, cfg *config.Config, ctx *correctionContextWindow) error {
+		if !correction.Value {
+			return c.ToggleWaterPump(0, db.ModeAgent, correction.Rationale)
+		}
 		if len(ctx.LatestTelemetryLog) > 0 {
 			if ctx.LatestTelemetryLog[0].SoilHumidity > cfg.Ecosystem.IdealConditions.MaxSoilMoisturePercent {
 				return nil
@@ -57,6 +60,7 @@ func executeCorrections(resp []byte, c api.DeviceController, database db.Databas
 	}
 
 	// NOTE .Relay is guarateed to be of type [db.Relay_t]
+	var errs []error
 	for _, correction := range corrections {
 		action, exists := actionMap[correction.Relay]
 		if !exists {
@@ -64,11 +68,11 @@ func executeCorrections(resp []byte, c api.DeviceController, database db.Databas
 		}
 
 		if err := action(correction, c, database, cfg, ctx); err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
 // The schema the AI agent uses to describe a journal.
