@@ -13,4 +13,5 @@ mosquitto/config/passwd
 
 
 plans/
+reference_docs/
 .esper/
