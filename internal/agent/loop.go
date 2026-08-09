@@ -40,9 +40,15 @@ func StartCorrectionLoop(database db.Database, c api.DeviceController, cfg *conf
 
 		err = executeCorrections(respBytes, c, database, cfg, ctx)
 		if err != nil {
-			tryFallbackOrFailsafe(database, c, cfg, ctx, "Couldnt execute Agents Correction response")
-			slog.Error(err.Error())
-			continue
+			if isBudgetOnlyError(err) {
+				// Budget exhausted is an expected daily condition, not a system failure.
+				// Other corrections in the batch already applied; only watering was skipped.
+				slog.Warn("Watering budget exhausted for today — skipping water correction")
+			} else {
+				tryFallbackOrFailsafe(database, c, cfg, ctx, "Couldnt execute Agents Correction response")
+				slog.Error(err.Error())
+				continue
+			}
 		}
 
 		currentSysState, err := database.SelectCurrentSystemState()
@@ -114,6 +120,27 @@ func StartRetryWorker(database db.Database, cfg *config.Config) {
 			slog.Info("Journal Retry succeeded!")
 		}
 	}
+}
+
+// isBudgetOnlyError reports whether every error in a (possibly joined) error
+// value is a db.ErrBudgetExceeded. Used to distinguish "watering skipped today"
+// (safe, expected) from a real execution failure that warrants FAILSAFE.
+func isBudgetOnlyError(err error) bool {
+	if err == nil {
+		return false
+	}
+	type joinedErr interface {
+		Unwrap() []error
+	}
+	if joined, ok := err.(joinedErr); ok {
+		for _, e := range joined.Unwrap() {
+			if e != nil && !errors.Is(e, db.ErrBudgetExceeded) {
+				return false
+			}
+		}
+		return true
+	}
+	return errors.Is(err, db.ErrBudgetExceeded)
 }
 
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////

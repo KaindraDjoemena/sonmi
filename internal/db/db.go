@@ -49,6 +49,12 @@ const (
 	ModeFailsafe Mode_t = "FAILSAFE"
 )
 
+// ErrBudgetExceeded is returned by DecrementWateringBudget when the daily
+// watering allowance is already exhausted. It is intentionally exported so
+// callers in the agent loop can treat it as a non-fatal, expected condition
+// rather than a system failure.
+var ErrBudgetExceeded = errors.New("watering budget exceeded")
+
 // /////////////////////////////////////////////////////////////////////////////////////////// DATABASE
 type Database struct {
 	path string
@@ -613,7 +619,7 @@ func (d Database) DecrementWateringBudget(date string, defaultBudget uint) error
 	}
 
 	if currentBudget <= 0 {
-		return fmt.Errorf("watering budget exceeded for today (%s)", date)
+		return fmt.Errorf("%w for today (%s)", ErrBudgetExceeded, date)
 	}
 
 	update_q := fmt.Sprintf(`UPDATE %s SET budget = budget - 1 WHERE date = ?`, TableWateringBudgets)
@@ -622,6 +628,16 @@ func (d Database) DecrementWateringBudget(date string, defaultBudget uint) error
 	}
 
 	return tx.Commit()
+}
+
+// SelectWateringBudget returns the remaining watering count for the given date.
+// Returns (0, sql.ErrNoRows) if no row exists yet — meaning the budget has not
+// been touched today and the full default allowance is available.
+func (d Database) SelectWateringBudget(date string) (int, error) {
+	query := fmt.Sprintf(`SELECT budget FROM %s WHERE date = ?`, TableWateringBudgets)
+	var budget int
+	err := d.conn.QueryRowContext(context.Background(), query, date).Scan(&budget)
+	return budget, err
 }
 
 // DAILY PHOTOS

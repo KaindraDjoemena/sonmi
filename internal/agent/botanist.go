@@ -131,13 +131,15 @@ func (j *journalContextWindow) compilePrompt() (string, error) {
 
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 type correctionContextWindow struct {
-	SysPrompt           string                  // templated sys prompt
-	BotanicalProfile    string                  // plant profile
-	IdealConditions     config.IdealConditions  // ideal conditions for the plant to thrive at each stage
-	TodaysStrategy      string                  // yesterdays proposed strategy
-	SpecialInstructions string                  // yesterdays special instructions
-	LatestSysLog        db.SystemStateRow       // current system state
-	LatestTelemetryLog  []db.SensorTelemetryRow // past hour telemetry logs
+	SysPrompt              string                  // templated sys prompt
+	BotanicalProfile       string                  // plant profile
+	IdealConditions        config.IdealConditions  // ideal conditions for the plant to thrive at each stage
+	TodaysStrategy         string                  // yesterdays proposed strategy
+	SpecialInstructions    string                  // yesterdays special instructions
+	LatestSysLog           db.SystemStateRow       // current system state
+	LatestTelemetryLog     []db.SensorTelemetryRow // past hour telemetry logs
+	LatestRelayLog         []db.RelayEventRow      // past 24 hour relay events
+	WateringBudgetRemaining int                    // remaining waterings allowed today (0 = exhausted)
 }
 
 func newCorrectionContext(d db.Database, cfg *config.Config) (*correctionContextWindow, error) {
@@ -181,14 +183,28 @@ func newCorrectionContext(d db.Database, cfg *config.Config) (*correctionContext
 		return nil, err
 	}
 
+	relayLogs, err := d.SelectPastNHourRelayEventRows(24)
+	if err != nil {
+		return nil, err
+	}
+
+	// Read remaining watering budget. sql.ErrNoRows means no watering has
+	// happened yet today — treat as full budget available.
+	wateringBudget := int(cfg.FailsafeDefaults.MaxWateringEventsPerDay)
+	if remaining, err := d.SelectWateringBudget(time.Now().Format(time.DateOnly)); err == nil {
+		wateringBudget = remaining
+	}
+
 	return &correctionContextWindow{
-		SysPrompt:           cfg.Ecosystem.CorrectionSysPrompt,
-		BotanicalProfile:    cfg.Ecosystem.BotanicalProfile,
-		IdealConditions:     cfg.Ecosystem.IdealConditions,
-		TodaysStrategy:      todaysStrat,
-		SpecialInstructions: specialInstr,
-		LatestSysLog:        latestSysLog,
-		LatestTelemetryLog:  telemetryLogs,
+		SysPrompt:               cfg.Ecosystem.CorrectionSysPrompt,
+		BotanicalProfile:        cfg.Ecosystem.BotanicalProfile,
+		IdealConditions:         cfg.Ecosystem.IdealConditions,
+		TodaysStrategy:          todaysStrat,
+		SpecialInstructions:     specialInstr,
+		LatestSysLog:            latestSysLog,
+		LatestTelemetryLog:      telemetryLogs,
+		LatestRelayLog:          relayLogs,
+		WateringBudgetRemaining: wateringBudget,
 	}, nil
 }
 

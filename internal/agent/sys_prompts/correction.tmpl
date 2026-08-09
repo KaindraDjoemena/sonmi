@@ -28,6 +28,19 @@
     Time: {{ .LatestSysLog.Time.Format "2006-01-02 15:04:05" }} | State: {{ .LatestSysLog.State }}
 </current_system_state>
 
+<watering_budget>
+    Remaining waterings allowed today: {{ .WateringBudgetRemaining }}
+    If this is 0, do NOT issue a WATER_PUMP correction with value: true. The hardware will reject it.
+</watering_budget>
+
+<past_24h_actuator_events>
+{{ range .LatestRelayLog }}
+    - Time: {{ .Time.Format "2006-01-02 15:04:05" }} | Relay: {{ .Relay }} | Mode: {{ .Mode }} | Value: {{ .Value }} | Rationale: {{ .Rationale }}
+{{ else }}
+    No Actuator Events Recorded In the Past 24 Hours
+{{ end }}
+</past_24h_actuator_events>
+
 <past_hour_telemetry_logs>
 {{ range .LatestTelemetryLog }}
     - Time: {{ .Time.Format "2006-01-02 15:04:05" }} | Temp: {{ .Temp }}°C | Air Humidity: {{ .AirHumidity }}% | Soil Moisture: {{ .SoilHumidity }}%
