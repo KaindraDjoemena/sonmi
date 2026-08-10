@@ -35,8 +35,6 @@ func main() {
 	// Image Stream
 	framePipe := make(chan image.Image, FRAME_BUFFER_SIZE)
 
-	go api.StartHTTPServer(":8080", framePipe)
-
 	// Telemetry Data
 	internalTelemetryPipe := make(chan api.Telemetry)
 	tuiTelemetryPipe := make(chan api.Telemetry)
@@ -67,6 +65,8 @@ func main() {
 	}
 
 	defer dbConn.CloseConn()
+
+	go api.StartHTTPServer(":8080", framePipe, dbConn)
 
 	// S3  must be initialised before the snapshot ticker starts
 	if err := api.InitS3Client(); err != nil {

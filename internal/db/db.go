@@ -481,7 +481,7 @@ func (r JournalEntryRow) Insert(d Database) error {
 
 	defer tx.Rollback()
 
-	query := fmt.Sprintf(`INSERT INTO %s (day_recap, plan_for_tomorrow, safe_defaults_json, agent_musings, is_stale, valid_for_date, img_url, time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, TableJournalEntries)
+	query := fmt.Sprintf(`INSERT OR IGNORE INTO %s (day_recap, plan_for_tomorrow, safe_defaults_json, agent_musings, is_stale, valid_for_date, img_url, time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, TableJournalEntries)
 	if _, err := tx.ExecContext(ctx, query, r.DayRecap, r.PlanForTomorrow, r.SafeDefaultsJSON, r.AgentMusings, r.IsStale, r.ValidForDate, r.ImgUrl, FormatTime(r.Time)); err != nil {
 		return err
 	}
@@ -535,6 +535,38 @@ func (d Database) SelectPastNDayJournalEntryRows(n uint) ([]JournalEntryRow, err
 	}
 
 	return journalEntryRows, nil
+}
+
+func (d Database) SelectLatestNJournalEntryRows(n uint) ([]JournalEntryRow, error) {
+	query := fmt.Sprintf(
+		`SELECT id, day_recap, plan_for_tomorrow, safe_defaults_json, agent_musings, is_stale, valid_for_date, img_url, time FROM %s ORDER BY time DESC LIMIT ?`,
+		TableJournalEntries,
+	)
+
+	rows, err := d.conn.Query(query, n)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := []JournalEntryRow{} // non-nil empty slice for json
+	var row JournalEntryRow
+	var tempTime string
+
+	for rows.Next() {
+		if err := rows.Scan(&row.Id, &row.DayRecap, &row.PlanForTomorrow,
+			&row.SafeDefaultsJSON, &row.AgentMusings, &row.IsStale,
+			&row.ValidForDate, &row.ImgUrl, &tempTime); err != nil {
+			return nil, err
+		}
+		timeObj, err := ParseTime(tempTime)
+		if err != nil {
+			return nil, err
+		}
+		row.Time = timeObj
+		result = append(result, row)
+	}
+	return result, rows.Err()
 }
 
 func (d Database) MarkAllJournalsStale() error {
@@ -746,7 +778,7 @@ func (d Database) InitializeTables() error {
 			safe_defaults_json TEXT,
 			agent_musings      TEXT,
 			is_stale           BOOLEAN DEFAULT 0,
-			valid_for_date     TEXT,
+			valid_for_date     TEXT UNIQUE NOT NULL,
 			img_url            TEXT,
 			time               TEXT DEFAULT CURRENT_TIMESTAMP
 		);`,

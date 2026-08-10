@@ -115,5 +115,7 @@ func executeJournal(resp []byte, database db.Database) error {
 		return err
 	}
 
+	go api.FireRevalidateWebhook()
+
 	return nil
 }
