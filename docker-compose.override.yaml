@@ -13,6 +13,7 @@ services:
       - /dev/null:/mosquitto/config/passwd
 
   dummy:
+    image: indigopris/sonmi-dummy:latest
     build:
       context: .
       dockerfile: Dockerfile.dummy
