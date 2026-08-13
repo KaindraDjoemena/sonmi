@@ -10,7 +10,7 @@ function EntryDetail({ entry, onBack }: { entry: JournalEntry, onBack?: () => vo
       {onBack && (
         <button 
           onClick={onBack}
-          className="text-blue-600 underline hover:text-blue-800 mb-2 inline-block"
+          className="font-['Times_New_Roman',_Times,_serif] text-blue-600 underline hover:text-blue-800 mb-2 inline-block"
         >
           [Back to Archives]
         </button>
@@ -33,7 +33,7 @@ function EntryDetail({ entry, onBack }: { entry: JournalEntry, onBack?: () => vo
                   unoptimized
                 />
               </div>
-              <a href={entry.img_url} target="_blank" rel="noreferrer" className="text-blue-600 underline hover:text-blue-800 block mb-2">
+              <a href={entry.img_url} target="_blank" rel="noreferrer" className="font-['Times_New_Roman',_Times,_serif] text-blue-600 underline hover:text-blue-800 block mb-2">
                 [Attached Image: snapshot_{entry.valid_for_date}.jpg]
               </a>
             </>
@@ -149,7 +149,7 @@ export function JournalView({ journals }: { journals: JournalEntry[] }) {
                         <td className="pr-4 py-1">
                           <button 
                             onClick={() => setSelectedArchive(log)}
-                            className="text-blue-600 underline hover:text-blue-800 whitespace-nowrap"
+                            className="font-['Times_New_Roman',_Times,_serif] text-blue-600 underline hover:text-blue-800 whitespace-nowrap"
                           >
                             Entry #{log.id}
                           </button>
@@ -192,7 +192,7 @@ export function JournalView({ journals }: { journals: JournalEntry[] }) {
                 href="https://github.com/KaindraDjoemena/sonmi" 
                 target="_blank" 
                 rel="noreferrer"
-                className="text-blue-600 underline hover:text-blue-800"
+                className="font-['Times_New_Roman',_Times,_serif] text-blue-600 underline hover:text-blue-800"
               >
                 [View Source on GitHub]
               </a>

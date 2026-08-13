@@ -12,6 +12,7 @@ services:
       - ./sonmi-data:/root/sonmi-data
       - ./.ssh:/root/.ssh
       - ./config.yaml:/root/config.yaml
+      - ./.env.production:/root/.env.production
     restart: unless-stopped
     depends_on:
       - mosquitto

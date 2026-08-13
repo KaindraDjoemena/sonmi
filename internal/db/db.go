@@ -599,8 +599,14 @@ func (d Database) ConsumeReadyRetryJob() (*RetryJobRow, error) {
 	row := d.conn.QueryRow(selectQuery, FormatTime(time.Now()))
 
 	var job RetryJobRow
+	var nextRetryStr string
 	job.Time = time.Now()
-	err := row.Scan(&job.Id, &job.AttemptCount, &job.NextRetry)
+	err := row.Scan(&job.Id, &job.AttemptCount, &nextRetryStr)
+	if err != nil {
+		return nil, err
+	}
+
+	job.NextRetry, err = ParseTime(nextRetryStr)
 	if err != nil {
 		return nil, err
 	}
