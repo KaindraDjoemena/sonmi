@@ -6,3 +6,6 @@ sonmi-data
 *.db
 .env
 .env.*
+devlog
+.esper
+*.exe
