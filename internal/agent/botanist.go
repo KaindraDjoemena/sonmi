@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"log"
 	"os"
 	"text/template"
 	"time"
@@ -268,7 +269,7 @@ func promptAgent(p compilablePrompt, cfg *config.Config, extraParts ...*genai.Pa
 
 	modelName := cfg.Agent.Model
 	modelTemp := float32(cfg.Agent.Temp)
-	fmt.Printf("Attempting to prompt %s\n", modelName)
+	log.Printf("Attempting to prompt %s\n", modelName)
 
 	var resp *genai.GenerateContentResponse
 
@@ -298,9 +299,9 @@ func promptAgent(p compilablePrompt, cfg *config.Config, extraParts ...*genai.Pa
 			break
 		}
 
-		fmt.Printf("Attempt %d failed: %v\n", i+1, err)
+		log.Printf("Attempt %d failed: %v\n", i+1, err)
 		if i < maxRetries-1 {
-			fmt.Println("Waiting 30 seconds before retrying...")
+			log.Println("Waiting 30 seconds before retrying...")
 			time.Sleep(WAIT_DURATION)
 		}
 	}

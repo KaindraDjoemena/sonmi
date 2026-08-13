@@ -6,6 +6,6 @@ export async function POST(req: NextRequest) {
   if (!secret || secret !== process.env.REVALIDATE_SECRET) {
     return NextResponse.json({ error: 'Invalid secret' }, { status: 401 })
   }
-  revalidateTag('journals', { expire: 0 })
+  revalidateTag('journals')
   return NextResponse.json({ revalidated: true, time: new Date().toISOString() })
 }
