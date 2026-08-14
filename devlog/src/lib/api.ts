@@ -23,9 +23,13 @@ export async function getJournals(): Promise<JournalEntry[]> {
       headers: { 'Authentication-Key': key },
       next: { revalidate: 86400, tags: ['journals'] },
     })
-    if (!res.ok) return []
+    if (!res.ok) {
+      console.error(`getJournals failed: ${res.status} ${res.statusText}`)
+      return []
+    }
     return res.json()
-  } catch {
+  } catch (error) {
+    console.error('Fetch failed in getJournals:', error)
     return []
   }
 }
