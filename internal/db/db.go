@@ -373,9 +373,14 @@ func (d Database) GetLastKnownRelayStateWithTime(relay Relay_t) (bool, time.Time
 	query := fmt.Sprintf(`SELECT value, time FROM %s WHERE relay = ? ORDER BY time DESC LIMIT 1`, TableRelayEvents)
 
 	var value bool
-	var t time.Time
-	if err := d.conn.QueryRow(query, string(relay)).Scan(&value, &t); err != nil {
+	var tempTime string
+	if err := d.conn.QueryRow(query, string(relay)).Scan(&value, &tempTime); err != nil {
 		return false, time.Time{}
+	}
+
+	t, err := ParseTime(tempTime)
+	if err != nil {
+		return value, time.Time{}
 	}
 
 	return value, t
