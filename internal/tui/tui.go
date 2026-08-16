@@ -77,12 +77,14 @@ func InitialModel(pipe chan image.Image, telemetryPipe chan api.Telemetry, relay
 		initData.Sensors.SoilHumidity = telRows[0].SoilHumidity
 	}
 
-	initData.Relays.WaterPump = dbConn.GetLastKnownRelayState(db.RelayWaterPump)
-	initData.Relays.GrowLight = dbConn.GetLastKnownRelayState(db.RelayGrowLight)
-	initData.Relays.IntakeFan = dbConn.GetLastKnownRelayState(db.RelayIntakeFan)
-	initData.Relays.ExhaustFan = dbConn.GetLastKnownRelayState(db.RelayExhaustFan)
+	var initRelayTimestamps relayTimestamps
+	initData.Relays.WaterPump, initRelayTimestamps.WaterPump = dbConn.GetLastKnownRelayStateWithTime(db.RelayWaterPump)
+	initData.Relays.GrowLight, initRelayTimestamps.GrowLight = dbConn.GetLastKnownRelayStateWithTime(db.RelayGrowLight)
+	initData.Relays.IntakeFan, initRelayTimestamps.IntakeFan = dbConn.GetLastKnownRelayStateWithTime(db.RelayIntakeFan)
+	initData.Relays.ExhaustFan, initRelayTimestamps.ExhaustFan = dbConn.GetLastKnownRelayStateWithTime(db.RelayExhaustFan)
 
 	telemetryPanel := InitializeTelemetryPanel(dbConn, loopStatus, initData)
+	telemetryPanel.relayChanged = initRelayTimestamps
 	rightPanel := InitializeRightPanel(telemetryPanel, InitializeMonitorPanel(dbConn, loopStatus))
 
 	ti := textinput.New()
@@ -91,15 +93,16 @@ func InitialModel(pipe chan image.Image, telemetryPipe chan api.Telemetry, relay
 	ti.Width = 30
 
 	return appModel{
-		telemetryPipe:     telemetryPipe,
-		relayStatePipe:    relayStatePipe,
-		gatewayHealthPipe: gatewayHealthPipe,
-		latestTelemetry:   initData,
-		controller:        ctrl,
-		state:             StateNormal,
-		txtInput:          ti,
-		leftPanel:         InitializeCameraPanel(pipe),
-		rightPanel:        rightPanel,
+		telemetryPipe:         telemetryPipe,
+		relayStatePipe:        relayStatePipe,
+		gatewayHealthPipe:     gatewayHealthPipe,
+		latestTelemetry:       initData,
+		latestRelayTimestamps: initRelayTimestamps,
+		controller:            ctrl,
+		state:                 StateNormal,
+		txtInput:              ti,
+		leftPanel:             InitializeCameraPanel(pipe),
+		rightPanel:            rightPanel,
 	}
 }
 

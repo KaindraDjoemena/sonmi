@@ -361,14 +361,24 @@ func (d Database) SelectPastNHourRelayEventRows(n uint) ([]RelayEventRow, error)
 }
 
 func (d Database) GetLastKnownRelayState(relay Relay_t) bool {
-	query := fmt.Sprintf(`SELECT value FROM %s WHERE relay = ? ORDER BY time DESC LIMIT 1`, TableRelayEvents)
+	value, _ := d.GetLastKnownRelayStateWithTime(relay)
+	return value
+}
+
+// GetLastKnownRelayStateWithTime is GetLastKnownRelayState plus the time that
+// state was last confirmed by hardware — used to seed the TUI's per-relay
+// "last changed" display at startup rather than showing "never" until the
+// first live RelayState message arrives this session.
+func (d Database) GetLastKnownRelayStateWithTime(relay Relay_t) (bool, time.Time) {
+	query := fmt.Sprintf(`SELECT value, time FROM %s WHERE relay = ? ORDER BY time DESC LIMIT 1`, TableRelayEvents)
 
 	var value bool
-	if err := d.conn.QueryRow(query, string(relay)).Scan(&value); err != nil {
-		return false
+	var t time.Time
+	if err := d.conn.QueryRow(query, string(relay)).Scan(&value, &t); err != nil {
+		return false, time.Time{}
 	}
 
-	return value
+	return value, t
 }
 
 // SYSTEM STATE
