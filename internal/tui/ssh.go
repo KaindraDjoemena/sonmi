@@ -30,7 +30,7 @@ import (
 //
 // Only one session is allowed at a time (enforced via CAS) — simultaneous
 // sessions would race over relay control and the single-consumer TUI channels.
-func teaMiddleware(framePipe chan image.Image, tuiTelemetryPipe chan api.Telemetry, tuiRelayStatePipe chan api.RelayState, ctrl api.DeviceController, dbConn db.Database) wish.Middleware {
+func teaMiddleware(framePipe chan image.Image, tuiTelemetryPipe chan api.Telemetry, tuiRelayStatePipe chan api.RelayState, tuiGatewayHealthPipe chan api.GatewayHealth, ctrl api.DeviceController, dbConn db.Database, loopStatus *api.LoopStatus) wish.Middleware {
 	var activeSessions atomic.Int32
 	return func(next cssh.Handler) cssh.Handler {
 		return func(sess cssh.Session) {
@@ -46,7 +46,7 @@ func teaMiddleware(framePipe chan image.Image, tuiTelemetryPipe chan api.Telemet
 				return
 			}
 
-			m := InitialModel(framePipe, tuiTelemetryPipe, tuiRelayStatePipe, ctrl, dbConn)
+			m := InitialModel(framePipe, tuiTelemetryPipe, tuiRelayStatePipe, tuiGatewayHealthPipe, ctrl, dbConn, loopStatus)
 			p := tea.NewProgram(m,
 				tea.WithAltScreen(),
 				tea.WithInput(sess),
@@ -82,13 +82,13 @@ func teaMiddleware(framePipe chan image.Image, tuiTelemetryPipe chan api.Telemet
 	}
 }
 
-func StartSSHServer(addr string, hostKeyPath string, framePipe chan image.Image, tuiTelemetryPipe chan api.Telemetry, tuiRelayStatePipe chan api.RelayState, ctrl api.DeviceController, dbConn db.Database) {
+func StartSSHServer(addr string, hostKeyPath string, framePipe chan image.Image, tuiTelemetryPipe chan api.Telemetry, tuiRelayStatePipe chan api.RelayState, tuiGatewayHealthPipe chan api.GatewayHealth, ctrl api.DeviceController, dbConn db.Database, loopStatus *api.LoopStatus) {
 	s, err := wish.NewServer(
 		wish.WithAddress(addr),
 		wish.WithHostKeyPath(hostKeyPath),
 		wish.WithAuthorizedKeys(".ssh/authorized_keys"),
 		wish.WithMiddleware(
-			teaMiddleware(framePipe, tuiTelemetryPipe, tuiRelayStatePipe, ctrl, dbConn),
+			teaMiddleware(framePipe, tuiTelemetryPipe, tuiRelayStatePipe, tuiGatewayHealthPipe, ctrl, dbConn, loopStatus),
 			activeterm.Middleware(),
 			logging.Middleware(),
 		),

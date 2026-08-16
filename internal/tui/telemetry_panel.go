@@ -55,7 +55,7 @@ func (p TelemetryPanel) View() string {
 	s += "\n" + fmt.Sprintf("[e]xhaust fan ON: %t", t.Relays.ExhaustFan)
 
 	s += "\n"
-	s += "\n" + "(<ctrl>+C to quit) | (<ctrl>+[ ] to toggle relays)"
+	s += "\n" + "(<ctrl>+C to quit) | (<ctrl>+[ ] to toggle relays) | (<tab> for monitor)"
 
 	return s
 }

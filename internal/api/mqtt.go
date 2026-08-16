@@ -12,9 +12,9 @@ type MQTTClient struct {
 	mqttClient mqtt.Client
 }
 
-// NewClient connects to the MQTT broker, subscribes to the telemetry topic and the
-// relay state topic, and returns a ready-to-use MQTTClient.
-func NewClient(telemetryPipe chan Telemetry, relayStatePipe chan RelayState, broker string, clientId string, telemetryTopic string) (*MQTTClient, error) {
+// NewClient connects to the MQTT broker, subscribes to the telemetry topic, the
+// relay state topic, and the gateway health topic, and returns a ready-to-use MQTTClient.
+func NewClient(telemetryPipe chan Telemetry, relayStatePipe chan RelayState, gatewayHealthPipe chan GatewayHealth, broker string, clientId string, telemetryTopic string) (*MQTTClient, error) {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(broker)
 	opts.SetClientID(clientId)
@@ -52,6 +52,23 @@ func NewClient(telemetryPipe chan Telemetry, relayStatePipe chan RelayState, bro
 
 		relayStatePipe <- data // [StartRelayStateLogger] consumes the channel
 	})
+
+	// Subscribe to the Pi edge gateway's health reports (roadmap.md Phase 4)
+	if topic := os.Getenv("MQTT_TOPIC_GATEWAY_HEALTH"); topic != "" {
+		mqttClient.Subscribe(topic, 1, func(client mqtt.Client, msg mqtt.Message) {
+			var data GatewayHealth
+
+			if err := json.Unmarshal(msg.Payload(), &data); err != nil {
+				log.Printf("Failed to Unmarshal Gateway Health JSON: %v\n", err)
+				return
+			}
+
+			select {
+			case gatewayHealthPipe <- data:
+			default: // non-blocking: drop if the TUI isn't currently reading
+			}
+		})
+	}
 
 	return &MQTTClient{
 		mqttClient: mqttClient,

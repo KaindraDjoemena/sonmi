@@ -35,9 +35,10 @@ const (
 )
 
 type appModel struct {
-	telemetryPipe   chan api.Telemetry
-	relayStatePipe  chan api.RelayState
-	latestTelemetry api.Telemetry
+	telemetryPipe     chan api.Telemetry
+	relayStatePipe    chan api.RelayState
+	gatewayHealthPipe chan api.GatewayHealth
+	latestTelemetry   api.Telemetry
 
 	controller api.DeviceController
 
@@ -53,7 +54,7 @@ type appModel struct {
 
 var _ tea.Model = appModel{} // assigns appModel{} to a tea.Model _ object to check interface implementation compliance
 
-func InitialModel(pipe chan image.Image, telemetryPipe chan api.Telemetry, relayStatePipe chan api.RelayState, ctrl api.DeviceController, dbConn db.Database) appModel {
+func InitialModel(pipe chan image.Image, telemetryPipe chan api.Telemetry, relayStatePipe chan api.RelayState, gatewayHealthPipe chan api.GatewayHealth, ctrl api.DeviceController, dbConn db.Database, loopStatus *api.LoopStatus) appModel {
 
 	// Fetch latest telemetry from the db
 	var initData api.Telemetry
@@ -70,8 +71,9 @@ func InitialModel(pipe chan image.Image, telemetryPipe chan api.Telemetry, relay
 	initData.Relays.IntakeFan = dbConn.GetLastKnownRelayState(db.RelayIntakeFan)
 	initData.Relays.ExhaustFan = dbConn.GetLastKnownRelayState(db.RelayExhaustFan)
 
-	rightPanel := InitializeTelemetryPanel(initData)
-	rightPanel.currTelemetry = initData
+	telemetryPanel := InitializeTelemetryPanel(initData)
+	telemetryPanel.currTelemetry = initData
+	rightPanel := InitializeRightPanel(telemetryPanel, InitializeMonitorPanel(dbConn, loopStatus))
 
 	ti := textinput.New()
 	ti.Placeholder = "Duration..."
@@ -79,14 +81,15 @@ func InitialModel(pipe chan image.Image, telemetryPipe chan api.Telemetry, relay
 	ti.Width = 30
 
 	return appModel{
-		telemetryPipe:   telemetryPipe,
-		relayStatePipe:  relayStatePipe,
-		latestTelemetry: initData,
-		controller:      ctrl,
-		state:           StateNormal,
-		txtInput:        ti,
-		leftPanel:       InitializeCameraPanel(pipe),
-		rightPanel:      rightPanel,
+		telemetryPipe:     telemetryPipe,
+		relayStatePipe:    relayStatePipe,
+		gatewayHealthPipe: gatewayHealthPipe,
+		latestTelemetry:   initData,
+		controller:        ctrl,
+		state:             StateNormal,
+		txtInput:          ti,
+		leftPanel:         InitializeCameraPanel(pipe),
+		rightPanel:        rightPanel,
 	}
 }
 
@@ -103,10 +106,17 @@ func waitForRelayState(pipe chan api.RelayState) tea.Cmd {
 	}
 }
 
+func waitForGatewayHealth(pipe chan api.GatewayHealth) tea.Cmd {
+	return func() tea.Msg {
+		return <-pipe
+	}
+}
+
 func (m appModel) Init() tea.Cmd {
 	return tea.Batch(
 		waitForTelemetry(m.telemetryPipe),
 		waitForRelayState(m.relayStatePipe),
+		waitForGatewayHealth(m.gatewayHealthPipe),
 		m.leftPanel.Init(),
 		m.rightPanel.Init(),
 	)
@@ -211,6 +221,9 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.rightPanel, _ = m.rightPanel.Update(m.latestTelemetry)
 
 		return m, tea.Batch(cmdLeft, cmdRight, waitForRelayState(m.relayStatePipe))
+
+	case api.GatewayHealth:
+		return m, tea.Batch(cmdLeft, cmdRight, waitForGatewayHealth(m.gatewayHealthPipe))
 	}
 
 	return m, tea.Batch(cmdLeft, cmdRight)

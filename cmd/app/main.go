@@ -43,10 +43,17 @@ func main() {
 	internalRelayStatePipe := make(chan api.RelayState)
 	tuiRelayStatePipe := make(chan api.RelayState)
 
+	// Pi edge gateway health reports — consumed directly by the TUI, no DB persistence
+	tuiGatewayHealthPipe := make(chan api.GatewayHealth)
+
+	// Tracks correction/journal agent loop attempt/success times for the TUI monitor panel
+	loopStatus := &api.LoopStatus{}
+
 	// MQTT Client
 	mqttClient, err := api.NewClient(
 		internalTelemetryPipe,
 		internalRelayStatePipe,
+		tuiGatewayHealthPipe,
 		os.Getenv("MQTT_BROKER"),
 		os.Getenv("MQTT_SERVER_CLIENT_ID"),
 		os.Getenv("MQTT_TOPIC_TELEMETRY"),
@@ -87,9 +94,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	go agent.StartCorrectionLoop(dbConn, controller, cfg)
-	go agent.StartJournalLoop(dbConn, cfg)
-	go agent.StartRetryWorker(dbConn, cfg)
+	go agent.StartCorrectionLoop(dbConn, controller, cfg, loopStatus)
+	go agent.StartJournalLoop(dbConn, cfg, loopStatus)
+	go agent.StartRetryWorker(dbConn, cfg, loopStatus)
 
 	go api.StartTelemetryLogger(internalTelemetryPipe, tuiTelemetryPipe, dbConn)
 	go api.StartRelayStateLogger(internalRelayStatePipe, tuiRelayStatePipe, dbConn)
@@ -105,5 +112,5 @@ func main() {
 	}
 
 	// StartSSHServer blocks until SIGINT/SIGTERM — this is the app's main blocking call.
-	tui.StartSSHServer(sshAddr, hostKeyPath, framePipe, tuiTelemetryPipe, tuiRelayStatePipe, controller, dbConn)
+	tui.StartSSHServer(sshAddr, hostKeyPath, framePipe, tuiTelemetryPipe, tuiRelayStatePipe, tuiGatewayHealthPipe, controller, dbConn, loopStatus)
 }
