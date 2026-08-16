@@ -4,6 +4,7 @@ import (
 	"image"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -26,6 +27,15 @@ const (
 	waterPumpPulseDurationS = 5
 )
 
+// relayTimestamps tracks when each relay's state was last hardware-confirmed
+// changed (per api.RelayState.Time), for display in TelemetryPanel.
+type relayTimestamps struct {
+	WaterPump  time.Time
+	GrowLight  time.Time
+	IntakeFan  time.Time
+	ExhaustFan time.Time
+}
+
 type AppState int
 
 const (
@@ -35,10 +45,11 @@ const (
 )
 
 type appModel struct {
-	telemetryPipe     chan api.Telemetry
-	relayStatePipe    chan api.RelayState
-	gatewayHealthPipe chan api.GatewayHealth
-	latestTelemetry   api.Telemetry
+	telemetryPipe         chan api.Telemetry
+	relayStatePipe        chan api.RelayState
+	gatewayHealthPipe     chan api.GatewayHealth
+	latestTelemetry       api.Telemetry
+	latestRelayTimestamps relayTimestamps
 
 	controller api.DeviceController
 
@@ -71,8 +82,7 @@ func InitialModel(pipe chan image.Image, telemetryPipe chan api.Telemetry, relay
 	initData.Relays.IntakeFan = dbConn.GetLastKnownRelayState(db.RelayIntakeFan)
 	initData.Relays.ExhaustFan = dbConn.GetLastKnownRelayState(db.RelayExhaustFan)
 
-	telemetryPanel := InitializeTelemetryPanel(initData)
-	telemetryPanel.currTelemetry = initData
+	telemetryPanel := InitializeTelemetryPanel(dbConn, loopStatus, initData)
 	rightPanel := InitializeRightPanel(telemetryPanel, InitializeMonitorPanel(dbConn, loopStatus))
 
 	ti := textinput.New()
@@ -210,13 +220,19 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Relay {
 		case db.RelayWaterPump:
 			m.latestTelemetry.Relays.WaterPump = msg.Value
+			m.latestRelayTimestamps.WaterPump = msg.Time
 		case db.RelayGrowLight:
 			m.latestTelemetry.Relays.GrowLight = msg.Value
+			m.latestRelayTimestamps.GrowLight = msg.Time
 		case db.RelayIntakeFan:
 			m.latestTelemetry.Relays.IntakeFan = msg.Value
+			m.latestRelayTimestamps.IntakeFan = msg.Time
 		case db.RelayExhaustFan:
 			m.latestTelemetry.Relays.ExhaustFan = msg.Value
+			m.latestRelayTimestamps.ExhaustFan = msg.Time
 		}
+
+		m.rightPanel, _ = m.rightPanel.Update(m.latestRelayTimestamps)
 
 		m.rightPanel, _ = m.rightPanel.Update(m.latestTelemetry)
 

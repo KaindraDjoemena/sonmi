@@ -147,6 +147,9 @@ func agoOrNever(t time.Time) string {
 	return agoString(t)
 }
 
+// agoString renders a timestamp as a relative age (Xs/Xm/Xh/Xd ago). Using
+// relative units instead of a raw duration keeps the string length roughly
+// constant instead of growing unboundedly the longer something's been true.
 func agoString(t time.Time) string {
 	d := time.Since(t).Round(time.Second)
 	switch {
@@ -154,7 +157,9 @@ func agoString(t time.Time) string {
 		return fmt.Sprintf("%ds ago", int(d.Seconds()))
 	case d < time.Hour:
 		return fmt.Sprintf("%dm ago", int(d.Minutes()))
-	default:
+	case d < 24*time.Hour:
 		return fmt.Sprintf("%dh ago", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
 	}
 }

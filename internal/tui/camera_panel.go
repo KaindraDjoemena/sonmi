@@ -50,14 +50,16 @@ func (p CameraPanel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (p CameraPanel) View() string {
+	links := "\n" + "Devlog: sonmi.netlify.app"
+	links += "\n" + "Live Stream: not yet available (YouTube stream planned)" + "\n"
+
 	if p.img == nil {
-		return "Waiting for camera stream..."
+		return "Waiting for camera stream..." + links
 	}
 
 	s := style.Header.Render("ESP32-CAM") + "\n\n"
 	s += imgToANSI(p.img, p.w, p.h)
-	s += "Live Stream URL: "
-	s += "xxxxxxxxxxx" + "\n"
+	s += links
 
 	return s
 }

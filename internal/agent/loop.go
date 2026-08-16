@@ -54,14 +54,20 @@ func StartCorrectionLoop(database db.Database, c api.DeviceController, cfg *conf
 
 		status.MarkCorrectionSuccess()
 
-		currentSysState, err := database.SelectCurrentSystemState()
-		if errors.Is(err, sql.ErrNoRows) || (err == nil && currentSysState.State != db.StateNominal) {
-			sysRow := db.SystemStateRow{
-				State: db.StateNominal,
-				Time:  time.Now(),
-			}
+		// Don't stamp NOMINAL over a JOURNAL_DEGRADED state that newCorrectionContext
+		// just inserted this same tick — that condition is still true regardless of
+		// whether the correction itself executed successfully. newCorrectionContext
+		// clears JOURNAL_DEGRADED itself once a fresh journal reappears.
+		if !ctx.JournalDegraded {
+			currentSysState, err := database.SelectCurrentSystemState()
+			if errors.Is(err, sql.ErrNoRows) || (err == nil && currentSysState.State != db.StateNominal) {
+				sysRow := db.SystemStateRow{
+					State: db.StateNominal,
+					Time:  time.Now(),
+				}
 
-			sysRow.Insert(database)
+				sysRow.Insert(database)
+			}
 		}
 	}
 }
@@ -71,12 +77,14 @@ func StartCorrectionLoop(database db.Database, c api.DeviceController, cfg *conf
 // 2. generate journal context for agent
 // 3. if (2) passes, we prompt the agent,         otherwise fail silently and dont make a journal entry for the day
 // 4. if (3) passes, we create the journal entry, otherwise fail silently and dont make a journal entry for the day
+//
+// Fires at a fixed wall-clock time (23:59) rather than a ticker started from
+// process boot — a boot-relative 24h ticker drifts to whatever time-of-day the
+// container last restarted, which can leave "today" without any journal entry
+// whose valid_for_date matches today for most of the day (see JournalDegraded).
 func StartJournalLoop(database db.Database, cfg *config.Config, status *api.LoopStatus) {
-	ticker := time.NewTicker(24 * time.Hour)
-	defer ticker.Stop()
-
 	for {
-		<-ticker.C
+		<-time.After(durationUntilNext(23, 59))
 
 		slog.Info("Executing Journal Loop...")
 		status.MarkJournalAttempt()
@@ -128,6 +136,19 @@ func StartRetryWorker(database db.Database, cfg *config.Config, status *api.Loop
 			status.MarkJournalSuccess()
 		}
 	}
+}
+
+// durationUntilNext returns how long to wait until the next occurrence of
+// hour:minute in the local clock — today if that time hasn't passed yet,
+// otherwise tomorrow. Used to keep the journal loop pinned to a fixed
+// wall-clock time instead of drifting with container restarts.
+func durationUntilNext(hour, minute int) time.Duration {
+	now := time.Now()
+	next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
+	if !next.After(now) {
+		next = next.AddDate(0, 0, 1)
+	}
+	return time.Until(next)
 }
 
 // isBudgetOnlyError reports whether every error in a (possibly joined) error

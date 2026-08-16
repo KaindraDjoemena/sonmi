@@ -141,6 +141,7 @@ type correctionContextWindow struct {
 	LatestTelemetryLog     []db.SensorTelemetryRow // past hour telemetry logs
 	LatestRelayLog         []db.RelayEventRow      // past 24 hour relay events
 	WateringBudgetRemaining int                    // remaining waterings allowed today (0 = exhausted)
+	JournalDegraded        bool                    // true if no valid (fresh, dated today) journal plan exists this tick
 }
 
 func newCorrectionContext(d db.Database, cfg *config.Config) (*correctionContextWindow, error) {
@@ -159,12 +160,14 @@ func newCorrectionContext(d db.Database, cfg *config.Config) (*correctionContext
 		return nil, err
 	}
 	var todaysStrat, specialInstr string
+	journalDegraded := false
 
 	// stale journal handling
 	if len(pastJournals) > 0 {
 		if pastJournals[0].IsStale || pastJournals[0].ValidForDate != time.Now().Format(time.DateOnly) {
 
 			// stale journal
+			journalDegraded = true
 			db.SystemStateRow{State: db.StateJournalDegraded, Time: time.Now()}.Insert(d)
 		} else {
 
@@ -206,6 +209,7 @@ func newCorrectionContext(d db.Database, cfg *config.Config) (*correctionContext
 		LatestTelemetryLog:      telemetryLogs,
 		LatestRelayLog:          relayLogs,
 		WateringBudgetRemaining: wateringBudget,
+		JournalDegraded:         journalDegraded,
 	}, nil
 }
 
