@@ -52,12 +52,12 @@ func main() {
 	}()
 
 	// Telemetry Data
-	internalTelemetryPipe := make(chan api.Telemetry)
-	tuiTelemetryPipe := make(chan api.Telemetry)
+	internalTelemetryPipe := make(chan api.Telemetry, 10)
+	tuiTelemetryPipe := make(chan api.Telemetry, 10)
 
 	// Relay State (hardware-confirmed state changes from ESP32)
-	internalRelayStatePipe := make(chan api.RelayState)
-	tuiRelayStatePipe := make(chan api.RelayState)
+	internalRelayStatePipe := make(chan api.RelayState, 10)
+	tuiRelayStatePipe := make(chan api.RelayState, 10)
 
 	// Pi edge gateway health reports — consumed directly by the TUI, no DB persistence
 	tuiGatewayHealthPipe := make(chan api.GatewayHealth)
