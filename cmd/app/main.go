@@ -33,7 +33,23 @@ func main() {
 	log.Printf("Loaded env: %s", envFile)
 
 	// Image Stream
+	tuiFramePipe := make(chan image.Image, FRAME_BUFFER_SIZE)
+	snapshotFramePipe := make(chan image.Image, FRAME_BUFFER_SIZE)
+	
+	// Create a master pipe and broadcast to all consumers
 	framePipe := make(chan image.Image, FRAME_BUFFER_SIZE)
+	go func() {
+		for img := range framePipe {
+			select {
+			case tuiFramePipe <- img:
+			default:
+			}
+			select {
+			case snapshotFramePipe <- img:
+			default:
+			}
+		}
+	}()
 
 	// Telemetry Data
 	internalTelemetryPipe := make(chan api.Telemetry)
@@ -80,7 +96,7 @@ func main() {
 		log.Printf("Warning: Failed to initialise S3 client, daily snapshot ticker will not start: %v", err)
 		os.Exit(1)
 	} else {
-		go api.StartDailySnapshotTicker(framePipe, dbConn)
+		go api.StartDailySnapshotTicker(snapshotFramePipe, dbConn)
 		go api.StartDBBackupTicker(dbConn)
 	}
 
@@ -112,5 +128,5 @@ func main() {
 	}
 
 	// StartSSHServer blocks until SIGINT/SIGTERM — this is the app's main blocking call.
-	tui.StartSSHServer(sshAddr, hostKeyPath, framePipe, tuiTelemetryPipe, tuiRelayStatePipe, tuiGatewayHealthPipe, controller, dbConn, loopStatus)
+	tui.StartSSHServer(sshAddr, hostKeyPath, tuiFramePipe, tuiTelemetryPipe, tuiRelayStatePipe, tuiGatewayHealthPipe, controller, dbConn, loopStatus)
 }
