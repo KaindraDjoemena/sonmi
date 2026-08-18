@@ -164,7 +164,7 @@ func (d Database) SelectNTelemetryRows(n uint) ([]SensorTelemetryRow, error) {
 }
 
 func (d Database) SelectPastNHourTelemetryRows(n uint) ([]SensorTelemetryRow, error) {
-	cutoff := time.Now().Add(-time.Duration(n) * time.Hour)
+	cutoff := time.Now().UTC().Add(-time.Duration(n) * time.Hour)
 	cutoffStr := FormatTime(cutoff)
 
 	query := fmt.Sprintf(`SELECT id, temp, air_humidity, soil_humidity, time FROM %s WHERE time >= ? ORDER BY time DESC`, TableSensorTelemetries)
@@ -316,7 +316,7 @@ func (d Database) SelectAllRelayEventRows() ([]RelayEventRow, error) {
 }
 
 func (d Database) SelectPastNHourRelayEventRows(n uint) ([]RelayEventRow, error) {
-	cutoff := time.Now().Add(-time.Duration(n) * time.Hour)
+	cutoff := time.Now().UTC().Add(-time.Duration(n) * time.Hour)
 	cutoffStr := FormatTime(cutoff)
 
 	query := fmt.Sprintf(`SELECT id, relay, mode, value, rationale, time FROM %s WHERE time >= ? ORDER BY time DESC`, TableRelayEvents)
@@ -412,7 +412,7 @@ func (r SystemStateRow) Insert(d Database) error {
 }
 
 func (d Database) SelectPastNHourSystemRows(n uint) ([]SystemStateRow, error) {
-	cutoff := time.Now().Add(-time.Duration(n) * time.Hour)
+	cutoff := time.Now().UTC().Add(-time.Duration(n) * time.Hour)
 	cutoffStr := FormatTime(cutoff)
 
 	query := fmt.Sprintf(`SELECT id, state, time FROM %s WHERE time >= ? ORDER BY time DESC`, TableSystemStates)
@@ -505,7 +505,7 @@ func (r JournalEntryRow) Insert(d Database) error {
 }
 
 func (d Database) SelectPastNDayJournalEntryRows(n uint) ([]JournalEntryRow, error) {
-	cutoff := time.Now().Add(-time.Duration(24*n) * time.Hour)
+	cutoff := time.Now().UTC().Add(-time.Duration(24*n) * time.Hour)
 	cutoffStr := FormatTime(cutoff)
 
 	query := fmt.Sprintf(`SELECT id, day_recap, plan_for_tomorrow, safe_defaults_json, agent_musings, is_stale, valid_for_date, img_url, time from %s WHERE time >= ? ORDER BY time DESC`, TableJournalEntries)
@@ -611,11 +611,11 @@ func (d Database) InsertRetryJob(nextRetry time.Time) error {
 func (d Database) ConsumeReadyRetryJob() (*RetryJobRow, error) {
 	selectQuery := fmt.Sprintf(`SELECT id, attempt_count, next_retry FROM %s WHERE next_retry <= ? ORDER BY next_retry ASC LIMIT 1`, TableRetryQueue)
 
-	row := d.conn.QueryRow(selectQuery, FormatTime(time.Now()))
+	row := d.conn.QueryRow(selectQuery, FormatTime(time.Now().UTC()))
 
 	var job RetryJobRow
 	var nextRetryStr string
-	job.Time = time.Now()
+	job.Time = time.Now().UTC()
 	err := row.Scan(&job.Id, &job.AttemptCount, &nextRetryStr)
 	if err != nil {
 		return nil, err

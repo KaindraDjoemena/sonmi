@@ -63,8 +63,8 @@ func newJournalContext(d db.Database, cfg *config.Config) (*journalContextWindow
 		return nil, err
 	}
 
-	today := time.Now().Format(time.DateOnly)
-	yesterday := time.Now().AddDate(0, 0, -1).Format(time.DateOnly)
+	today := time.Now().UTC().Format(time.DateOnly)
+	yesterday := time.Now().UTC().AddDate(0, 0, -1).Format(time.DateOnly)
 
 	imgToday := ""
 	if row, err := d.SelectDailyPhoto(today); err == nil {
@@ -132,16 +132,16 @@ func (j *journalContextWindow) compilePrompt() (string, error) {
 
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 type correctionContextWindow struct {
-	SysPrompt              string                  // templated sys prompt
-	BotanicalProfile       string                  // plant profile
-	IdealConditions        config.IdealConditions  // ideal conditions for the plant to thrive at each stage
-	TodaysStrategy         string                  // yesterdays proposed strategy
-	SpecialInstructions    string                  // yesterdays special instructions
-	LatestSysLog           db.SystemStateRow       // current system state
-	LatestTelemetryLog     []db.SensorTelemetryRow // past hour telemetry logs
-	LatestRelayLog         []db.RelayEventRow      // past 24 hour relay events
-	WateringBudgetRemaining int                    // remaining waterings allowed today (0 = exhausted)
-	JournalDegraded        bool                    // true if no valid (fresh, dated today) journal plan exists this tick
+	SysPrompt               string                  // templated sys prompt
+	BotanicalProfile        string                  // plant profile
+	IdealConditions         config.IdealConditions  // ideal conditions for the plant to thrive at each stage
+	TodaysStrategy          string                  // yesterdays proposed strategy
+	SpecialInstructions     string                  // yesterdays special instructions
+	LatestSysLog            db.SystemStateRow       // current system state
+	LatestTelemetryLog      []db.SensorTelemetryRow // past hour telemetry logs
+	LatestRelayLog          []db.RelayEventRow      // past 24 hour relay events
+	WateringBudgetRemaining int                     // remaining waterings allowed today (0 = exhausted)
+	JournalDegraded         bool                    // true if no valid (fresh, dated today) journal plan exists this tick
 }
 
 func newCorrectionContext(d db.Database, cfg *config.Config) (*correctionContextWindow, error) {
@@ -164,11 +164,11 @@ func newCorrectionContext(d db.Database, cfg *config.Config) (*correctionContext
 
 	// stale journal handling
 	if len(pastJournals) > 0 {
-		if pastJournals[0].IsStale || pastJournals[0].ValidForDate != time.Now().Format(time.DateOnly) {
+		if pastJournals[0].IsStale || pastJournals[0].ValidForDate != time.Now().UTC().Format(time.DateOnly) {
 
 			// stale journal
 			journalDegraded = true
-			db.SystemStateRow{State: db.StateJournalDegraded, Time: time.Now()}.Insert(d)
+			db.SystemStateRow{State: db.StateJournalDegraded, Time: time.Now().UTC()}.Insert(d)
 		} else {
 
 			// fresh journal
@@ -177,7 +177,7 @@ func newCorrectionContext(d db.Database, cfg *config.Config) (*correctionContext
 
 			// if the system were previously degraded, log that we are nominal again
 			if latestSysLog.State == db.StateJournalDegraded {
-				db.SystemStateRow{State: db.StateNominal, Time: time.Now()}.Insert(d)
+				db.SystemStateRow{State: db.StateNominal, Time: time.Now().UTC()}.Insert(d)
 			}
 		}
 	}
@@ -195,7 +195,7 @@ func newCorrectionContext(d db.Database, cfg *config.Config) (*correctionContext
 	// Read remaining watering budget. sql.ErrNoRows means no watering has
 	// happened yet today — treat as full budget available.
 	wateringBudget := int(cfg.FailsafeDefaults.MaxWateringEventsPerDay)
-	if remaining, err := d.SelectWateringBudget(time.Now().Format(time.DateOnly)); err == nil {
+	if remaining, err := d.SelectWateringBudget(time.Now().UTC().Format(time.DateOnly)); err == nil {
 		wateringBudget = remaining
 	}
 

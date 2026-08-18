@@ -33,25 +33,25 @@ type LoopStatus struct {
 func (s *LoopStatus) MarkCorrectionAttempt() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.lastCorrectionAttempt = time.Now()
+	s.lastCorrectionAttempt = time.Now().UTC()
 }
 
 func (s *LoopStatus) MarkCorrectionSuccess() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.lastCorrectionSuccess = time.Now()
+	s.lastCorrectionSuccess = time.Now().UTC()
 }
 
 func (s *LoopStatus) MarkJournalAttempt() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.lastJournalAttempt = time.Now()
+	s.lastJournalAttempt = time.Now().UTC()
 }
 
 func (s *LoopStatus) MarkJournalSuccess() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.lastJournalSuccess = time.Now()
+	s.lastJournalSuccess = time.Now().UTC()
 }
 
 // LoopSnapshot is a point-in-time read of LoopStatus's timestamps.

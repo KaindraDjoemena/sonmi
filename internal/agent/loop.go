@@ -63,7 +63,7 @@ func StartCorrectionLoop(database db.Database, c api.DeviceController, cfg *conf
 			if errors.Is(err, sql.ErrNoRows) || (err == nil && currentSysState.State != db.StateNominal) {
 				sysRow := db.SystemStateRow{
 					State: db.StateNominal,
-					Time:  time.Now(),
+					Time:  time.Now().UTC(),
 				}
 
 				sysRow.Insert(database)
@@ -91,7 +91,7 @@ func StartJournalLoop(database db.Database, cfg *config.Config, status *api.Loop
 
 		if err := generateJournal(database, cfg); err != nil {
 			slog.Error("Journal generation failed, scheduling retry", "error", err)
-			database.InsertRetryJob(time.Now().Add(30 * time.Minute))
+			database.InsertRetryJob(time.Now().UTC().Add(30 * time.Minute))
 		} else {
 			status.MarkJournalSuccess()
 		}
@@ -120,11 +120,11 @@ func StartRetryWorker(database db.Database, cfg *config.Config, status *api.Loop
 			var nextRetry time.Time
 			switch job.AttemptCount {
 			case 0:
-				nextRetry = time.Now().Add(60 * time.Minute)
+				nextRetry = time.Now().UTC().Add(60 * time.Minute)
 			case 1:
-				nextRetry = time.Now().Add(120 * time.Minute)
+				nextRetry = time.Now().UTC().Add(120 * time.Minute)
 			case 2:
-				nextRetry = time.Now().Add(180 * time.Minute)
+				nextRetry = time.Now().UTC().Add(180 * time.Minute)
 			default:
 				slog.Error("Journal retry exhausted. Skipping the day.")
 				continue
@@ -143,8 +143,8 @@ func StartRetryWorker(database db.Database, cfg *config.Config, status *api.Loop
 // otherwise tomorrow. Used to keep the journal loop pinned to a fixed
 // wall-clock time instead of drifting with container restarts.
 func durationUntilNext(hour, minute int) time.Duration {
-	now := time.Now()
-	next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
+	now := time.Now().UTC()
+	next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, time.UTC)
 	if !next.After(now) {
 		next = next.AddDate(0, 0, 1)
 	}
@@ -177,7 +177,7 @@ func tryFallbackOrFailsafe(database db.Database, c api.DeviceController, cfg *co
 	if ctx != nil && ctx.SpecialInstructions != "" {
 		sysRow := db.SystemStateRow{
 			State: db.StateCorrectionDegraded,
-			Time:  time.Now(),
+			Time:  time.Now().UTC(),
 		}
 
 		sysRow.Insert(database)
@@ -192,7 +192,7 @@ func tryFallbackOrFailsafe(database db.Database, c api.DeviceController, cfg *co
 func enterFailsafeMode(database db.Database, c api.DeviceController, cfg *config.Config, rationale string) {
 	slog.Error("Entering Failsafe Mode", "reason", rationale)
 
-	sysRow := db.SystemStateRow{State: db.StateFailsafe, Time: time.Now()}
+	sysRow := db.SystemStateRow{State: db.StateFailsafe, Time: time.Now().UTC()}
 	sysRow.Insert(database)
 
 	waterOK := true
@@ -201,7 +201,7 @@ func enterFailsafeMode(database db.Database, c api.DeviceController, cfg *config
 	}
 
 	if waterOK {
-		if err := database.DecrementWateringBudget(time.Now().Format(time.DateOnly), cfg.FailsafeDefaults.MaxWateringEventsPerDay); err == nil {
+		if err := database.DecrementWateringBudget(time.Now().UTC().Format(time.DateOnly), cfg.FailsafeDefaults.MaxWateringEventsPerDay); err == nil {
 			c.ToggleWaterPump(cfg.FailsafeDefaults.WaterPumpDurationS, db.ModeFailsafe, rationale)
 		}
 	}

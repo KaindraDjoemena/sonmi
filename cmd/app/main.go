@@ -35,7 +35,7 @@ func main() {
 	// Image Stream
 	tuiFramePipe := make(chan image.Image, FRAME_BUFFER_SIZE)
 	snapshotFramePipe := make(chan image.Image, FRAME_BUFFER_SIZE)
-	
+
 	// Create a master pipe and broadcast to all consumers
 	framePipe := make(chan image.Image, FRAME_BUFFER_SIZE)
 	go func() {

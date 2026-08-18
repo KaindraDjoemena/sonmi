@@ -33,7 +33,7 @@ var actionMap = map[string]relayAction{
 				return nil
 			}
 		}
-		if err := database.DecrementWateringBudget(time.Now().Format(time.DateOnly), cfg.FailsafeDefaults.MaxWateringEventsPerDay); err != nil {
+		if err := database.DecrementWateringBudget(time.Now().UTC().Format(time.DateOnly), cfg.FailsafeDefaults.MaxWateringEventsPerDay); err != nil {
 			return err
 		}
 		return c.ToggleWaterPump(correction.Duration, db.ModeAgent, correction.Rationale)
@@ -93,7 +93,7 @@ func executeJournal(resp []byte, database db.Database) error {
 	// Look up today's photo URL from the daily_photos table.
 	// If not found yet (ticker hasn't fired, or S3 not configured), leave ImgUrl empty.
 	imgUrl := ""
-	photoRow, err := database.SelectDailyPhoto(time.Now().Format(time.DateOnly))
+	photoRow, err := database.SelectDailyPhoto(time.Now().UTC().Format(time.DateOnly))
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		log.Printf("Warning: failed to look up today's daily photo: %v", err)
 	} else if err == nil {
@@ -106,9 +106,9 @@ func executeJournal(resp []byte, database db.Database) error {
 		SafeDefaultsJSON: journalResponse.SafeDefaultsJSON,
 		AgentMusings:     journalResponse.AgentMusings,
 		IsStale:          false,
-		ValidForDate:     time.Now().Add(24 * time.Hour).Format(time.DateOnly),
+		ValidForDate:     time.Now().UTC().Add(24 * time.Hour).Format(time.DateOnly),
 		ImgUrl:           imgUrl,
-		Time:             time.Now(),
+		Time:             time.Now().UTC(),
 	}
 
 	if err := journalEntry.Insert(database); err != nil {

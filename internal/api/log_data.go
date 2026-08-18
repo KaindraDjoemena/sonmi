@@ -26,7 +26,7 @@ func StartTelemetryLogger(internalPipe <-chan Telemetry, tuiPipe chan<- Telemetr
 			Temp:         t.Sensors.Temperature,
 			AirHumidity:  t.Sensors.AirHumidity,
 			SoilHumidity: t.Sensors.SoilHumidity,
-			Time:         time.Now(),
+			Time:         time.Now().UTC(),
 		}
 
 		if err := newTelemetryRow.Insert(database); err != nil {
@@ -47,7 +47,7 @@ func StartRelayStateLogger(internalPipe <-chan RelayState, tuiPipe chan<- RelayS
 	// Consume from [NewClient]
 	for rs := range internalPipe {
 		if rs.Time.IsZero() {
-			rs.Time = time.Now()
+			rs.Time = time.Now().UTC()
 		}
 
 		row := db.RelayEventRow{

@@ -34,7 +34,7 @@ func StartDailySnapshotTicker(framePipe <-chan image.Image, database db.Database
 				continue
 			}
 
-			today := time.Now()
+			today := time.Now().UTC()
 			fileKey := fmt.Sprintf("daily/%s.jpg", today.Format(time.DateOnly))
 
 			url, err := UploadDailyPhoto(context.Background(), fileKey, &buf)

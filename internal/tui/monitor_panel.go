@@ -15,7 +15,7 @@ import (
 // report before the monitor panel flags that source as stale/unreachable rather
 // than showing a possibly-ancient last-known value as if it were current.
 const (
-	gatewayHealthStaleAfter = 3 * time.Minute // health reporter publishes ~every 60s
+	gatewayHealthStaleAfter = 3 * time.Minute  // health reporter publishes ~every 60s
 	telemetryStaleAfter     = 15 * time.Minute // ESP32 publishes ~every 5min
 )
 
@@ -58,10 +58,10 @@ func (p MonitorPanel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case api.GatewayHealth:
 		p.latestHealth = msg
-		p.healthReceivedAt = time.Now()
+		p.healthReceivedAt = time.Now().UTC()
 
 	case api.Telemetry:
-		p.lastTelemetryAt = time.Now()
+		p.lastTelemetryAt = time.Now().UTC()
 
 	case monitorTickMsg:
 		p.sysState, p.sysStateErr = p.dbConn.SelectCurrentSystemState()

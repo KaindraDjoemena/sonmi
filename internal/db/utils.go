@@ -13,7 +13,7 @@ func FormatTime(t time.Time) string {
 }
 
 func ParseTime(t string) (time.Time, error) {
-	parsedTime, err := time.Parse(TIME_FORMAT, t)
+	parsedTime, err := time.ParseInLocation(TIME_FORMAT, t, time.UTC)
 	if err != nil {
 		return time.Time{}, err
 	}
