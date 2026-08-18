@@ -46,6 +46,10 @@ func StartRelayStateLogger(internalPipe <-chan RelayState, tuiPipe chan<- RelayS
 
 	// Consume from [NewClient]
 	for rs := range internalPipe {
+		if rs.Time.IsZero() {
+			rs.Time = time.Now()
+		}
+
 		row := db.RelayEventRow{
 			Relay:     rs.Relay,
 			Mode:      rs.Mode,
