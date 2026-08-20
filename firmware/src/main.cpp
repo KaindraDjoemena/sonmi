@@ -388,12 +388,13 @@ void loop()
 
     static u32 lastTelemetryMS = 0;
     static bool telemetryState = false;
-    if (millis() - lastTelemetryMS >= 5 * Time::SECOND)
+    u32 currMillis = millis();
+    if (currMillis - lastTelemetryMS >= 5 * Time::MINUTE)
     {
         publishTelemetry();
         telemetryState = !telemetryState;
         digitalWrite(TELEMETRY_PIN, telemetryState ? LOW : HIGH);
-        lastTelemetryMS = millis();
+        lastTelemetryMS = currMillis;
     }
 
     static u32 lastBlinkTimeMS = 0;
