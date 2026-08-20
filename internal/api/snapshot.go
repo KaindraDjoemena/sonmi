@@ -7,47 +7,65 @@ import (
 	"image"
 	"image/jpeg"
 	"log"
+	"sync"
 	"time"
 
 	"sonmi/internal/db"
 )
 
 func StartDailySnapshotTicker(framePipe <-chan image.Image, database db.Database) {
-	ticker := time.NewTicker(24 * time.Hour)
-	defer ticker.Stop()
+	var (
+		mu          sync.Mutex
+		latestFrame image.Image
+	)
 
-	var latestFrame image.Image
+	// Start a goroutine to keep track of the latest frame
+	go func() {
+		for frame := range framePipe {
+			mu.Lock()
+			latestFrame = frame
+			mu.Unlock()
+		}
+	}()
 
 	for {
-		select {
-		case frame := <-framePipe:
-			latestFrame = frame
-		case <-ticker.C:
-			if latestFrame == nil {
-				log.Println("Warning: no frame available for daily snapshot, skipping")
-				continue
-			}
+		// Calculate time until exactly 23:55 UTC (just before Journal Loop at 23:59)
+		now := time.Now().UTC()
+		next := time.Date(now.Year(), now.Month(), now.Day(), 23, 55, 0, 0, time.UTC)
+		if !next.After(now) {
+			next = next.AddDate(0, 0, 1)
+		}
 
-			var buf bytes.Buffer
-			if err := jpeg.Encode(&buf, latestFrame, &jpeg.Options{Quality: 85}); err != nil {
-				log.Printf("Error: failed to JPEG-encode frame: %v", err)
-				continue
-			}
+		<-time.After(time.Until(next))
 
-			today := time.Now().UTC()
-			fileKey := fmt.Sprintf("daily/%s.jpg", today.Format(time.DateOnly))
+		mu.Lock()
+		frame := latestFrame
+		mu.Unlock()
 
-			url, err := UploadDailyPhoto(context.Background(), fileKey, &buf)
-			if err != nil {
-				log.Printf("Error: failed to upload daily photo to S3: %v", err)
-				continue
-			}
+		if frame == nil {
+			log.Println("Warning: no frame available for daily snapshot, skipping")
+			continue
+		}
 
-			if err := (db.DailyPhotoRow{Date: today.Format(time.DateOnly), ImgUrl: url, Time: today}).Insert(database); err != nil {
-				log.Printf("Error: failed to insert daily photo row into DB: %v", err)
-			} else {
-				log.Printf("Daily snapshot saved successfully: %s", url)
-			}
+		var buf bytes.Buffer
+		if err := jpeg.Encode(&buf, frame, &jpeg.Options{Quality: 85}); err != nil {
+			log.Printf("Error: failed to JPEG-encode frame: %v", err)
+			continue
+		}
+
+		today := time.Now().UTC()
+		fileKey := fmt.Sprintf("daily/%s.jpg", today.Format(time.DateOnly))
+
+		url, err := UploadDailyPhoto(context.Background(), fileKey, &buf)
+		if err != nil {
+			log.Printf("Error: failed to upload daily photo to S3: %v", err)
+			continue
+		}
+
+		if err := (db.DailyPhotoRow{Date: today.Format(time.DateOnly), ImgUrl: url, Time: today}).Insert(database); err != nil {
+			log.Printf("Error: failed to insert daily photo row into DB: %v", err)
+		} else {
+			log.Printf("Daily snapshot saved successfully: %s", url)
 		}
 	}
 }

@@ -205,11 +205,17 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.txtInput.Placeholder = "Enter pump duration (s): "
 			return m, tea.Batch(cmdLeft, cmdRight, textinput.Blink)
 		case string(CMD_TOGGLE_LIGHT):
-			return m, tea.Batch(cmdLeft, cmdRight, triggerGrowLightCmd(m.controller, !m.latestTelemetry.Relays.GrowLight, ""))
+			m.latestTelemetry.Relays.GrowLight = !m.latestTelemetry.Relays.GrowLight
+			m.rightPanel, _ = m.rightPanel.Update(m.latestTelemetry)
+			return m, tea.Batch(cmdLeft, cmdRight, triggerGrowLightCmd(m.controller, m.latestTelemetry.Relays.GrowLight, ""))
 		case string(CMD_TOGGLE_INTAKE):
-			return m, tea.Batch(cmdLeft, cmdRight, triggerIntakeFanCmd(m.controller, !m.latestTelemetry.Relays.IntakeFan, ""))
+			m.latestTelemetry.Relays.IntakeFan = !m.latestTelemetry.Relays.IntakeFan
+			m.rightPanel, _ = m.rightPanel.Update(m.latestTelemetry)
+			return m, tea.Batch(cmdLeft, cmdRight, triggerIntakeFanCmd(m.controller, m.latestTelemetry.Relays.IntakeFan, ""))
 		case string(CMD_TOGGLE_EXHAUST):
-			return m, tea.Batch(cmdLeft, cmdRight, triggerExhautFanCmd(m.controller, !m.latestTelemetry.Relays.ExhaustFan, ""))
+			m.latestTelemetry.Relays.ExhaustFan = !m.latestTelemetry.Relays.ExhaustFan
+			m.rightPanel, _ = m.rightPanel.Update(m.latestTelemetry)
+			return m, tea.Batch(cmdLeft, cmdRight, triggerExhautFanCmd(m.controller, m.latestTelemetry.Relays.ExhaustFan, ""))
 		}
 		return m, tea.Batch(cmdLeft, cmdRight)
 

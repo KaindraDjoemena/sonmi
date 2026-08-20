@@ -42,7 +42,7 @@ func StartTelemetryLogger(internalPipe <-chan Telemetry, tuiPipe chan<- Telemetr
 }
 
 // Consume the RelayState -> write to DB -> pass the RelayState to the UI
-func StartRelayStateLogger(internalPipe <-chan RelayState, tuiPipe chan<- RelayState, database db.Database) {
+func StartRelayStateLogger(internalPipe <-chan RelayState, tuiPipe chan RelayState, database db.Database) {
 
 	// Consume from [NewClient]
 	for rs := range internalPipe {
@@ -63,9 +63,23 @@ func StartRelayStateLogger(internalPipe <-chan RelayState, tuiPipe chan<- RelayS
 			continue
 		}
 
+		// If the channel is full (because the TUI is offline), drain any backlog so the
+		// live confirmation is the only thing waiting, instead of queued behind stale entries.
 		select {
-		case tuiPipe <- rs: // Pass to [tui.waitForRelayState]
+		case tuiPipe <- rs:
 		default:
+		drain:
+			for {
+				select {
+				case <-tuiPipe:
+				default:
+					break drain
+				}
+			}
+			select {
+			case tuiPipe <- rs:
+			default:
+			}
 		}
 	}
 }
