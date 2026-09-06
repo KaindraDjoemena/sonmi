@@ -27,6 +27,20 @@ const (
 	waterPumpPulseDurationS = 5
 )
 
+const relayConfirmTimeout = 12 * time.Second
+
+type pendingToggle struct {
+	target      bool
+	requestedAt time.Time
+}
+
+type pendingRelays map[db.Relay_t]pendingToggle
+
+type relayCmdErr struct {
+	relay db.Relay_t
+	err   error
+}
+
 // relayTimestamps tracks when each relay's state was last hardware-confirmed
 // changed (per api.RelayState.Time), for display in TelemetryPanel.
 type relayTimestamps struct {
@@ -56,6 +70,9 @@ type appModel struct {
 	state           AppState
 	txtInput        textinput.Model
 	pendingDuration uint
+
+	pending   map[db.Relay_t]pendingToggle
+	statusMsg string
 
 	leftPanel  tea.Model
 	rightPanel tea.Model
@@ -101,6 +118,7 @@ func InitialModel(pipe chan image.Image, telemetryPipe chan api.Telemetry, relay
 		controller:            ctrl,
 		state:                 StateNormal,
 		txtInput:              ti,
+		pending:               make(map[db.Relay_t]pendingToggle),
 		leftPanel:             InitializeCameraPanel(pipe),
 		rightPanel:            rightPanel,
 	}
@@ -138,8 +156,25 @@ func (m appModel) Init() tea.Cmd {
 func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if telMsg, ok := msg.(api.Telemetry); ok {
-		m.latestTelemetry.Sensors = telMsg.Sensors // Merge new sensors with our known relays
-		msg = m.latestTelemetry                    // Replace the message with our merged version
+		m.latestTelemetry.Sensors = telMsg.Sensors
+
+		// Reconcile relays from the 5-min telemetry too, as a backstop for a
+		// missed api.RelayState confirmation — but never stomp a toggle that is
+		// still waiting for its own confirmation.
+		if _, waiting := m.pending[db.RelayWaterPump]; !waiting {
+			m.latestTelemetry.Relays.WaterPump = telMsg.Relays.WaterPump
+		}
+		if _, waiting := m.pending[db.RelayGrowLight]; !waiting {
+			m.latestTelemetry.Relays.GrowLight = telMsg.Relays.GrowLight
+		}
+		if _, waiting := m.pending[db.RelayIntakeFan]; !waiting {
+			m.latestTelemetry.Relays.IntakeFan = telMsg.Relays.IntakeFan
+		}
+		if _, waiting := m.pending[db.RelayExhaustFan]; !waiting {
+			m.latestTelemetry.Relays.ExhaustFan = telMsg.Relays.ExhaustFan
+		}
+
+		msg = m.latestTelemetry // Replace the message with our merged version
 	}
 
 	var cmdLeft, cmdRight tea.Cmd
@@ -186,6 +221,9 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = StateNormal
 					m.txtInput.Blur()
 					m.txtInput.Reset()
+					m.pending[db.RelayWaterPump] = pendingToggle{target: true, requestedAt: time.Now()}
+					m.statusMsg = ""
+					m.rightPanel, _ = m.rightPanel.Update(m.pendingSnapshot())
 					return m, tea.Batch(cmdLeft, cmdRight, triggerWaterPumpCmd(m.controller, m.pendingDuration, val))
 				}
 			}
@@ -205,17 +243,23 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.txtInput.Placeholder = "Enter pump duration (s): "
 			return m, tea.Batch(cmdLeft, cmdRight, textinput.Blink)
 		case string(CMD_TOGGLE_LIGHT):
-			m.latestTelemetry.Relays.GrowLight = !m.latestTelemetry.Relays.GrowLight
-			m.rightPanel, _ = m.rightPanel.Update(m.latestTelemetry)
-			return m, tea.Batch(cmdLeft, cmdRight, triggerGrowLightCmd(m.controller, m.latestTelemetry.Relays.GrowLight, ""))
+			target := !m.latestTelemetry.Relays.GrowLight
+			m.pending[db.RelayGrowLight] = pendingToggle{target: target, requestedAt: time.Now()}
+			m.statusMsg = ""
+			m.rightPanel, _ = m.rightPanel.Update(m.pendingSnapshot())
+			return m, tea.Batch(cmdLeft, cmdRight, triggerGrowLightCmd(m.controller, target, ""))
 		case string(CMD_TOGGLE_INTAKE):
-			m.latestTelemetry.Relays.IntakeFan = !m.latestTelemetry.Relays.IntakeFan
-			m.rightPanel, _ = m.rightPanel.Update(m.latestTelemetry)
-			return m, tea.Batch(cmdLeft, cmdRight, triggerIntakeFanCmd(m.controller, m.latestTelemetry.Relays.IntakeFan, ""))
+			target := !m.latestTelemetry.Relays.IntakeFan
+			m.pending[db.RelayIntakeFan] = pendingToggle{target: target, requestedAt: time.Now()}
+			m.statusMsg = ""
+			m.rightPanel, _ = m.rightPanel.Update(m.pendingSnapshot())
+			return m, tea.Batch(cmdLeft, cmdRight, triggerIntakeFanCmd(m.controller, target, ""))
 		case string(CMD_TOGGLE_EXHAUST):
-			m.latestTelemetry.Relays.ExhaustFan = !m.latestTelemetry.Relays.ExhaustFan
-			m.rightPanel, _ = m.rightPanel.Update(m.latestTelemetry)
-			return m, tea.Batch(cmdLeft, cmdRight, triggerExhautFanCmd(m.controller, m.latestTelemetry.Relays.ExhaustFan, ""))
+			target := !m.latestTelemetry.Relays.ExhaustFan
+			m.pending[db.RelayExhaustFan] = pendingToggle{target: target, requestedAt: time.Now()}
+			m.statusMsg = ""
+			m.rightPanel, _ = m.rightPanel.Update(m.pendingSnapshot())
+			return m, tea.Batch(cmdLeft, cmdRight, triggerExhautFanCmd(m.controller, target, ""))
 		}
 		return m, tea.Batch(cmdLeft, cmdRight)
 
@@ -241,11 +285,43 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.latestRelayTimestamps.ExhaustFan = msg.Time
 		}
 
-		m.rightPanel, _ = m.rightPanel.Update(m.latestRelayTimestamps)
+		if p, ok := m.pending[msg.Relay]; ok {
+			if p.target != msg.Value {
+				m.statusMsg = string(msg.Relay) + ": hardware confirmed opposite of request"
+			} else {
+				m.statusMsg = ""
+			}
+		}
 
+		delete(m.pending, msg.Relay)
+
+		m.rightPanel, _ = m.rightPanel.Update(m.latestRelayTimestamps)
 		m.rightPanel, _ = m.rightPanel.Update(m.latestTelemetry)
+		m.rightPanel, _ = m.rightPanel.Update(m.pendingSnapshot())
 
 		return m, tea.Batch(cmdLeft, cmdRight, waitForRelayState(m.relayStatePipe))
+
+	case monitorTickMsg:
+		// Sweep pending toggles that never got a hardware confirmation. Don't
+		// re-arm the tick here — MonitorPanel.Update owns monitorTickCmd().
+		changed := false
+		for relay, pt := range m.pending {
+			if time.Since(pt.requestedAt) > relayConfirmTimeout {
+				delete(m.pending, relay)
+				m.statusMsg = string(relay) + ": no hardware confirmation — reverted to last known state"
+				changed = true
+			}
+		}
+		if changed {
+			m.rightPanel, _ = m.rightPanel.Update(m.pendingSnapshot())
+		}
+		return m, tea.Batch(cmdLeft, cmdRight)
+
+	case relayCmdErr:
+		delete(m.pending, msg.relay)
+		m.statusMsg = string(msg.relay) + ": send failed: " + msg.err.Error()
+		m.rightPanel, _ = m.rightPanel.Update(m.pendingSnapshot())
+		return m, tea.Batch(cmdLeft, cmdRight)
 
 	case api.GatewayHealth:
 		return m, tea.Batch(cmdLeft, cmdRight, waitForGatewayHealth(m.gatewayHealthPipe))
@@ -265,22 +341,23 @@ func (m appModel) View() string {
 	renderedLeft := leftStyle.Render(lipgloss.PlaceHorizontal((m.width/2)-2, lipgloss.Center, leftStr))
 	renderedRight := rightStyle.Render(rightStr)
 
+	body := lipgloss.JoinHorizontal(lipgloss.Top, renderedLeft, renderedRight)
+
 	if m.state != StateNormal {
-		return lipgloss.JoinVertical(
-			lipgloss.Left,
-			lipgloss.JoinHorizontal(lipgloss.Top, renderedLeft, renderedRight),
-			"\n  "+m.txtInput.View(),
-		)
+		body = lipgloss.JoinVertical(lipgloss.Left, body, "\n  "+m.txtInput.View())
+	}
+	if m.statusMsg != "" {
+		body = lipgloss.JoinVertical(lipgloss.Left, body, "  ⚠ "+m.statusMsg)
 	}
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, renderedLeft, renderedRight)
+	return body
 }
 
 // //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 func triggerWaterPumpCmd(ctrl api.DeviceController, duration uint, rationale string) tea.Cmd {
 	return func() tea.Msg {
 		if err := ctrl.ToggleWaterPump(duration, db.ModeOverride, rationale); err != nil {
-			return err
+			return relayCmdErr{relay: db.RelayWaterPump, err: err}
 		}
 		return nil
 	}
@@ -288,7 +365,7 @@ func triggerWaterPumpCmd(ctrl api.DeviceController, duration uint, rationale str
 func triggerGrowLightCmd(ctrl api.DeviceController, state bool, rationale string) tea.Cmd {
 	return func() tea.Msg {
 		if err := ctrl.ToggleGrowLight(state, db.ModeOverride, rationale); err != nil {
-			return err
+			return relayCmdErr{relay: db.RelayGrowLight, err: err}
 		}
 		return nil
 	}
@@ -296,7 +373,7 @@ func triggerGrowLightCmd(ctrl api.DeviceController, state bool, rationale string
 func triggerIntakeFanCmd(ctrl api.DeviceController, state bool, rationale string) tea.Cmd {
 	return func() tea.Msg {
 		if err := ctrl.ToggleIntakeFan(state, db.ModeOverride, rationale); err != nil {
-			return err
+			return relayCmdErr{relay: db.RelayIntakeFan, err: err}
 		}
 		return nil
 	}
@@ -304,8 +381,17 @@ func triggerIntakeFanCmd(ctrl api.DeviceController, state bool, rationale string
 func triggerExhautFanCmd(ctrl api.DeviceController, state bool, rationale string) tea.Cmd {
 	return func() tea.Msg {
 		if err := ctrl.ToggleExhaustFan(state, db.ModeOverride, rationale); err != nil {
-			return err
+			return relayCmdErr{relay: db.RelayExhaustFan, err: err}
 		}
 		return nil
 	}
+}
+
+func (m appModel) pendingSnapshot() pendingRelays {
+	cp := make(pendingRelays, len(m.pending))
+	for k, v := range m.pending {
+		cp[k] = v
+	}
+
+	return cp
 }

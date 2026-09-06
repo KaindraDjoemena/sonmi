@@ -17,6 +17,7 @@ type TelemetryPanel struct {
 
 	currTelemetry api.Telemetry
 	relayChanged  relayTimestamps
+	pending       pendingRelays
 
 	sysState    db.SystemStateRow
 	sysStateErr error
@@ -48,6 +49,8 @@ func (p TelemetryPanel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		p.currTelemetry = msg
 	case relayTimestamps:
 		p.relayChanged = msg
+	case pendingRelays:
+		p.pending = msg
 	case monitorTickMsg:
 		p.sysState, p.sysStateErr = p.dbConn.SelectCurrentSystemState()
 	case tea.WindowSizeMsg:
@@ -79,10 +82,10 @@ func (p TelemetryPanel) View() string {
 	s += "\n" + fmt.Sprintf("Soil: %.2g%%", t.Sensors.SoilHumidity)
 
 	s += "\n"
-	s += "\n" + relayLine("[w]ater pump ON", t.Relays.WaterPump, p.relayChanged.WaterPump)
-	s += "\n" + relayLine("grow [l]ight ON", t.Relays.GrowLight, p.relayChanged.GrowLight)
-	s += "\n" + relayLine("i[n]take fan ON", t.Relays.IntakeFan, p.relayChanged.IntakeFan)
-	s += "\n" + relayLine("[e]xhaust fan ON", t.Relays.ExhaustFan, p.relayChanged.ExhaustFan)
+	s += "\n" + p.relayLine("[w]ater pump ON", db.RelayWaterPump, t.Relays.WaterPump, p.relayChanged.WaterPump)
+	s += "\n" + p.relayLine("grow [l]ight ON", db.RelayGrowLight, t.Relays.GrowLight, p.relayChanged.GrowLight)
+	s += "\n" + p.relayLine("i[n]take fan ON", db.RelayIntakeFan, t.Relays.IntakeFan, p.relayChanged.IntakeFan)
+	s += "\n" + p.relayLine("[e]xhaust fan ON", db.RelayExhaustFan, t.Relays.ExhaustFan, p.relayChanged.ExhaustFan)
 
 	s += "\n"
 	s += "\n" + "(<ctrl>+C to quit) | (<ctrl>+[ ] to toggle relays) | (<tab> for monitor)"
@@ -90,6 +93,9 @@ func (p TelemetryPanel) View() string {
 	return s
 }
 
-func relayLine(label string, value bool, changedAt time.Time) string {
+func (p TelemetryPanel) relayLine(label string, relay db.Relay_t, value bool, changedAt time.Time) string {
+	if pt, ok := p.pending[relay]; ok {
+		return fmt.Sprintf("%s: %t → %t  [WAITING…] (requested %s)", label, value, pt.target, agoOrNever(pt.requestedAt))
+	}
 	return fmt.Sprintf("%s: %t (%s)", label, value, agoOrNever(changedAt))
 }
