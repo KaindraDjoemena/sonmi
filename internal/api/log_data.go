@@ -42,7 +42,7 @@ func StartTelemetryLogger(internalPipe <-chan Telemetry, tuiPipe chan<- Telemetr
 }
 
 // Consume the RelayState -> write to DB -> pass the RelayState to the UI
-func StartRelayStateLogger(internalPipe <-chan RelayState, tuiPipe chan RelayState, database db.Database) {
+func StartRelayStateLogger(internalPipe <-chan RelayState, tuiPipe chan RelayState, database db.Database, rationales *RationaleCorrelator) {
 
 	// Consume from [NewClient]
 	for rs := range internalPipe {
@@ -54,7 +54,7 @@ func StartRelayStateLogger(internalPipe <-chan RelayState, tuiPipe chan RelaySta
 			Relay:     rs.Relay,
 			Mode:      rs.Mode,
 			Value:     rs.Value,
-			Rationale: "",
+			Rationale: rationales.Take(rs.Relay, rs.Mode),
 			Time:      rs.Time,
 		}
 

@@ -100,8 +100,11 @@ func main() {
 		go api.StartDBBackupTicker(dbConn)
 	}
 
+	rationales := api.NewRationaleCorrelator()
+
 	controller := api.ActuatorController{
-		Client: mqttClient,
+		Client:     mqttClient,
+		Rationales: rationales,
 	}
 
 	cfg, err := config.LoadConfig("config.yaml")
@@ -115,7 +118,7 @@ func main() {
 	go agent.StartRetryWorker(dbConn, cfg, loopStatus)
 
 	go api.StartTelemetryLogger(internalTelemetryPipe, tuiTelemetryPipe, dbConn)
-	go api.StartRelayStateLogger(internalRelayStatePipe, tuiRelayStatePipe, dbConn)
+	go api.StartRelayStateLogger(internalRelayStatePipe, tuiRelayStatePipe, dbConn, rationales)
 
 	sshAddr := os.Getenv("SSH_ADDR")
 	if sshAddr == "" {

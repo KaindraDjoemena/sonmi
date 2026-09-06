@@ -29,25 +29,30 @@ type DeviceController interface {
 
 // ActuatorController implements DeviceController and publishes commands to the MQTT broker.
 type ActuatorController struct {
-	Client *MQTTClient
+	Client     *MQTTClient
+	Rationales *RationaleCorrelator
 }
 
 func (c ActuatorController) ToggleWaterPump(duration uint, toggleMode db.Mode_t, rationale string) error {
+	c.Rationales.Put(db.RelayWaterPump, toggleMode, rationale)
 	cmd := ActuatorCommand{WaterPumpDuration: &duration, Mode: toggleMode}
 	return c.Client.SendCommand(cmd, os.Getenv("MQTT_TOPIC_COMMANDS"))
 }
 
 func (c ActuatorController) ToggleGrowLight(state bool, toggleMode db.Mode_t, rationale string) error {
+	c.Rationales.Put(db.RelayGrowLight, toggleMode, rationale)
 	cmd := ActuatorCommand{GrowLight: &state, Mode: toggleMode}
 	return c.Client.SendCommand(cmd, os.Getenv("MQTT_TOPIC_COMMANDS"))
 }
 
 func (c ActuatorController) ToggleIntakeFan(state bool, toggleMode db.Mode_t, rationale string) error {
+	c.Rationales.Put(db.RelayIntakeFan, toggleMode, rationale)
 	cmd := ActuatorCommand{IntakeFan: &state, Mode: toggleMode}
 	return c.Client.SendCommand(cmd, os.Getenv("MQTT_TOPIC_COMMANDS"))
 }
 
 func (c ActuatorController) ToggleExhaustFan(state bool, toggleMode db.Mode_t, rationale string) error {
+	c.Rationales.Put(db.RelayExhaustFan, toggleMode, rationale)
 	cmd := ActuatorCommand{ExhaustFan: &state, Mode: toggleMode}
 	return c.Client.SendCommand(cmd, os.Getenv("MQTT_TOPIC_COMMANDS"))
 }
