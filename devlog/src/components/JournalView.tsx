@@ -29,8 +29,8 @@ function EntryDetail({ entry, onBack }: { entry: JournalEntry, onBack?: () => vo
                   src={entry.img_url}
                   alt="Celosia Plant Snapshot"
                   fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
                   className="object-cover"
-                  unoptimized
                 />
               </div>
               <a href={entry.img_url} target="_blank" rel="noreferrer" className="font-['Times_New_Roman',_Times,_serif] text-blue-600 underline hover:text-blue-800 block mb-2">

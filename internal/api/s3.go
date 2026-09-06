@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -60,6 +61,37 @@ func UploadDailyPhoto(ctx context.Context, fileKey string, body io.Reader) (stri
 	region := os.Getenv("AWS_REGION")
 	objectURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", bucket, region, fileKey)
 	return objectURL, nil
+}
+
+// PresignDailyPhoto returns a time-limited GET URL for the S3 object behind
+// imgURL (as stored in daily_photos.img_url / journal_entries.img_url), so the
+// public site can load the image without the bucket being public. SigV4 with
+// static credentials caps ttl at 7 days; getJournals regenerates these on every
+// request and the devlog's ISR refetches daily, so served URLs stay well inside
+// that window.
+func PresignDailyPhoto(ctx context.Context, imgURL string, ttl time.Duration) (string, error) {
+	bucket := os.Getenv("S3_BUCKET_NAME")
+	if bucket == "" {
+		return "", fmt.Errorf("missing S3_BUCKET_NAME environment variable")
+	}
+	if S3Client == nil {
+		return "", fmt.Errorf("S3Client is not initialized")
+	}
+
+	u, err := url.Parse(imgURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid image URL: %v", err)
+	}
+	key := strings.TrimPrefix(u.Path, "/")
+
+	req, err := s3.NewPresignClient(S3Client).PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket: &bucket,
+		Key:    &key,
+	}, s3.WithPresignExpires(ttl))
+	if err != nil {
+		return "", fmt.Errorf("failed to presign image URL: %v", err)
+	}
+	return req.URL, nil
 }
 
 func FetchImageAsBase64(ctx context.Context, imgUrl string) ([]byte, error) {

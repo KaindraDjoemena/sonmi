@@ -66,6 +66,19 @@ func (ms *MediaServer) getJournals(w http.ResponseWriter, r *http.Request) {
 
 	res := make([]journalAPIResponse, 0, len(rows))
 	for _, row := range rows {
+		// The bucket is private; hand the site a short-lived presigned GET URL
+		// instead of the raw object URL. On failure, blank it so the UI shows
+		// "no photo" rather than a link that's guaranteed to 403.
+		imgURL := row.ImgUrl
+		if imgURL != "" {
+			if signed, err := PresignDailyPhoto(r.Context(), imgURL, 7*24*time.Hour); err == nil {
+				imgURL = signed
+			} else {
+				log.Printf("getJournals: presign failed for %q: %v", row.ImgUrl, err)
+				imgURL = ""
+			}
+		}
+
 		res = append(res, journalAPIResponse{
 			Id:              row.Id,
 			DayRecap:        row.DayRecap,
@@ -73,7 +86,7 @@ func (ms *MediaServer) getJournals(w http.ResponseWriter, r *http.Request) {
 			AgentMusings:    row.AgentMusings,
 			IsStale:         row.IsStale,
 			ValidForDate:    row.ValidForDate,
-			ImgUrl:          row.ImgUrl,
+			ImgUrl:          imgURL,
 			Time:            row.Time,
 		})
 	}
