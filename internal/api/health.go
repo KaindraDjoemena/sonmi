@@ -11,7 +11,7 @@ type GatewayHealth struct {
 	Timestamp time.Time `json:"timestamp"`
 	Hostapd   bool      `json:"hostapd"`
 	Dnsmasq   bool      `json:"dnsmasq"`
-	Uap0      bool      `json:"uap0"`
+	WlanAP    bool      `json:"wlan_ap"`
 	Mosquitto bool      `json:"mosquitto"`
 	Bridge    bool      `json:"bridge"`
 	PiRelay   bool      `json:"pi_relay"`

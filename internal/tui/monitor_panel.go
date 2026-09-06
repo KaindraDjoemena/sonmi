@@ -118,7 +118,7 @@ func (p MonitorPanel) View() string {
 		}
 		s += "\n  " + healthLine("hostapd", p.latestHealth.Hostapd, stale)
 		s += "\n  " + healthLine("dnsmasq", p.latestHealth.Dnsmasq, stale)
-		s += "\n  " + healthLine("uap0", p.latestHealth.Uap0, stale)
+		s += "\n  " + healthLine("wlan-ap", p.latestHealth.WlanAP, stale)
 		s += "\n  " + healthLine("mosquitto", p.latestHealth.Mosquitto, stale)
 		s += "\n  " + healthLine("bridge->aws", p.latestHealth.Bridge, stale)
 		s += "\n  " + healthLine("pi-relay", p.latestHealth.PiRelay, stale)
