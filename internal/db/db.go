@@ -24,16 +24,11 @@ const (
 	TableDailyPhotos       Table_t = "daily_photos"
 )
 
-type Sensor_t string
 type Relay_t string
 type State_t string
 type Mode_t string
 
 const (
-	SensorTemp         Sensor_t = "TEMP"
-	SensorAirHumidity  Sensor_t = "AIR_HUMIDITY"
-	SensorSoilHumidity Sensor_t = "SOIL_HUMIDITY"
-
 	RelayWaterPump  Relay_t = "WATER_PUMP"
 	RelayGrowLight  Relay_t = "GROW_LIGHT"
 	RelayIntakeFan  Relay_t = "INTAKE_FAN"
@@ -124,45 +119,6 @@ func (r SensorTelemetryRow) Insert(d Database) error {
 	return tx.Commit()
 }
 
-func (d Database) SelectNTelemetryRows(n uint) ([]SensorTelemetryRow, error) {
-	rows, err := d.conn.Query(fmt.Sprintf(`SELECT * FROM %s LIMIT %d`, TableSensorTelemetries, n))
-	if err != nil {
-		return nil, err
-	}
-
-	defer rows.Close()
-
-	var telemetryRows []SensorTelemetryRow
-	var telemetryRow SensorTelemetryRow
-	var tempTime string
-
-	for rows.Next() {
-		err := rows.Scan(&telemetryRow.Id, &telemetryRow.Temp, &telemetryRow.AirHumidity, &telemetryRow.SoilHumidity, &tempTime)
-		if err != nil {
-			return nil, err
-		}
-
-		timeObj, err := ParseTime(tempTime)
-		if err != nil {
-			return nil, err
-		}
-
-		telemetryRows = append(telemetryRows, SensorTelemetryRow{
-			Id:           telemetryRow.Id,
-			Temp:         telemetryRow.Temp,
-			AirHumidity:  telemetryRow.AirHumidity,
-			SoilHumidity: telemetryRow.SoilHumidity,
-			Time:         timeObj,
-		})
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return telemetryRows, nil
-}
-
 func (d Database) SelectPastNHourTelemetryRows(n uint) ([]SensorTelemetryRow, error) {
 	cutoff := time.Now().UTC().Add(-time.Duration(n) * time.Hour)
 	cutoffStr := FormatTime(cutoff)
@@ -235,86 +191,6 @@ func (r RelayEventRow) Insert(d Database) error {
 	return tx.Commit()
 }
 
-func (d Database) SelectNRelayEventRows(n uint) ([]RelayEventRow, error) {
-	rows, err := d.conn.Query(fmt.Sprintf(`SELECT * FROM %s LIMIT %d`, TableRelayEvents, n))
-	if err != nil {
-		return nil, err
-	}
-
-	defer rows.Close()
-
-	var relayEventRows []RelayEventRow
-	var relayEventRow RelayEventRow
-	var tempTime string
-
-	for rows.Next() {
-		err := rows.Scan(&relayEventRow.Id, &relayEventRow.Relay, &relayEventRow.Mode, &relayEventRow.Value, &relayEventRow.Rationale, &tempTime)
-		if err != nil {
-			return nil, err
-		}
-
-		timeObj, err := ParseTime(tempTime)
-		if err != nil {
-			return nil, err
-		}
-
-		relayEventRows = append(relayEventRows, RelayEventRow{
-			Id:        relayEventRow.Id,
-			Relay:     relayEventRow.Relay,
-			Mode:      relayEventRow.Mode,
-			Value:     relayEventRow.Value,
-			Rationale: relayEventRow.Rationale,
-			Time:      timeObj,
-		})
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return relayEventRows, nil
-}
-
-func (d Database) SelectAllRelayEventRows() ([]RelayEventRow, error) {
-	rows, err := d.conn.Query(fmt.Sprintf(`SELECT * FROM %s`, TableRelayEvents))
-	if err != nil {
-		return nil, err
-	}
-
-	defer rows.Close()
-
-	var relayEventRows []RelayEventRow
-	var relayEventRow RelayEventRow
-	var tempTime string
-
-	for rows.Next() {
-		err := rows.Scan(&relayEventRow.Id, &relayEventRow.Relay, &relayEventRow.Mode, &relayEventRow.Value, &relayEventRow.Rationale, &tempTime)
-		if err != nil {
-			return nil, err
-		}
-
-		timeObj, err := ParseTime(tempTime)
-		if err != nil {
-			return nil, err
-		}
-
-		relayEventRows = append(relayEventRows, RelayEventRow{
-			Id:        relayEventRow.Id,
-			Relay:     relayEventRow.Relay,
-			Mode:      relayEventRow.Mode,
-			Value:     relayEventRow.Value,
-			Rationale: relayEventRow.Rationale,
-			Time:      timeObj,
-		})
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return relayEventRows, nil
-}
-
 func (d Database) SelectPastNHourRelayEventRows(n uint) ([]RelayEventRow, error) {
 	cutoff := time.Now().UTC().Add(-time.Duration(n) * time.Hour)
 	cutoffStr := FormatTime(cutoff)
@@ -360,13 +236,8 @@ func (d Database) SelectPastNHourRelayEventRows(n uint) ([]RelayEventRow, error)
 	return relayEventRows, nil
 }
 
-func (d Database) GetLastKnownRelayState(relay Relay_t) bool {
-	value, _ := d.GetLastKnownRelayStateWithTime(relay)
-	return value
-}
-
-// GetLastKnownRelayStateWithTime is GetLastKnownRelayState plus the time that
-// state was last confirmed by hardware — used to seed the TUI's per-relay
+// GetLastKnownRelayStateWithTime returns the last hardware-confirmed state of
+// relay and the time that state was confirmed — used to seed the TUI's per-relay
 // "last changed" display at startup rather than showing "never" until the
 // first live RelayState message arrives this session.
 func (d Database) GetLastKnownRelayStateWithTime(relay Relay_t) (bool, time.Time) {

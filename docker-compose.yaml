@@ -26,6 +26,3 @@ services:
       - ./mosquitto/config/mosquitto.prod.conf:/mosquitto/config/mosquitto.conf
       - ./mosquitto/config/passwd:/mosquitto/config/passwd
     restart: unless-stopped
-
-volumes:
-  sonmi-data:

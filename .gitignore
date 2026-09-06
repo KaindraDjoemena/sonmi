@@ -8,6 +8,7 @@ mosquitto/config/passwd
 
 *.db
 .lazysql.toml
+.obsidian/
 
 *.exe
 
