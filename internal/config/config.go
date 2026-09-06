@@ -36,8 +36,6 @@ type IdealConditions struct {
 	HumidityFlowerPercentMax float32 `yaml:"humidity_flower_percent_max"`
 	LightHoursMin            uint    `yaml:"light_hours_min"`
 	LightHoursMax            uint    `yaml:"light_hours_max"`
-	PhMin                    float32 `yaml:"ph_min"`
-	PhMax                    float32 `yaml:"ph_max"`
 	MinSoilMoisturePercent   float32 `yaml:"min_soil_moisture_percent"`
 	MaxSoilMoisturePercent   float32 `yaml:"max_soil_moisture_percent"`
 	MaxTemperatureC          float32 `yaml:"max_temperature_c"`
@@ -47,21 +45,17 @@ type IdealConditions struct {
 type FailsafeDefaults struct {
 	WaterPumpDurationS      uint `yaml:"water_pump_duration_s"`
 	GrowLightOn             bool `yaml:"grow_light_on"`
-	LightOnHourLocal        uint `yaml:"light_on_hour_local"`
-	LightOffHourLocal       uint `yaml:"light_off_hour_local"`
-	HeatingPadOn            bool `yaml:"relay_3_heating_pad_on"`
 	IntakeFanOn             bool `yaml:"intake_fan_on"`
 	ExhaustFanOn            bool `yaml:"exhaust_fan_on"`
 	MaxWateringEventsPerDay uint `yaml:"max_watering_events_per_day"`
 }
 
 type ResilienceConfig struct {
-	MaxCorrectionRetries       uint   `yaml:"max_correction_retries"`
-	CorrectionJitterSeconds    uint   `yaml:"jitter_seconds"`
-	MaxJournalRetries          uint   `yaml:"max_journal_retries"`
-	JournalRetryDelayMinutes   []uint `yaml:"retry_delay_minutes"`
-	JournalRetryBackoffSeconds uint   `yaml:"journal_retry_backoff_seconds"`
-	DegradedAlert              bool   `yaml:"degraded_alert"`
+	MaxCorrectionRetries     uint   `yaml:"max_correction_retries"`
+	CorrectionJitterSeconds  uint   `yaml:"jitter_seconds"`
+	MaxJournalRetries        uint   `yaml:"max_journal_retries"`
+	JournalRetryDelayMinutes []uint `yaml:"retry_delay_minutes"`
+	DegradedAlert            bool   `yaml:"degraded_alert"`
 }
 
 func LoadConfig(path string) (*Config, error) {

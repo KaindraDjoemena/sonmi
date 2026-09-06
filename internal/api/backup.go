@@ -12,10 +12,10 @@ import (
 )
 
 func StartDBBackupTicker(dbConn db.Database) {
-	ticker := time.NewTicker(24 * time.Hour)
-	defer ticker.Stop()
+	for {
+		// Wait until 23:55 UTC everyday
+		<-time.After(durationUntilNext(23, 55))
 
-	for range ticker.C {
 		tmpPath := filepath.Join(os.TempDir(), fmt.Sprintf("sonmi-backup-%d.db", time.Now().UTC().Unix()))
 
 		if err := dbConn.Vacuum(tmpPath); err != nil {
@@ -39,4 +39,13 @@ func StartDBBackupTicker(dbConn db.Database) {
 		f.Close()
 		os.Remove(tmpPath)
 	}
+}
+
+func durationUntilNext(hour, minute int) time.Duration {
+	now := time.Now().UTC()
+	next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, time.UTC)
+	if !next.After(now) {
+		next = next.AddDate(0, 0, 1)
+	}
+	return time.Until(next)
 }

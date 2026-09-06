@@ -1,10 +1,13 @@
 package agent
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"log/slog"
 	"time"
+
+	"google.golang.org/genai"
 
 	"sonmi/internal/api"
 	"sonmi/internal/config"
@@ -91,7 +94,7 @@ func StartJournalLoop(database db.Database, cfg *config.Config, status *api.Loop
 
 		if err := generateJournal(database, cfg); err != nil {
 			slog.Error("Journal generation failed, scheduling retry", "error", err)
-			database.InsertRetryJob(time.Now().UTC().Add(30 * time.Minute))
+			database.InsertRetryJob(time.Now().UTC().Add(journalRetryDelay(cfg, 0)))
 		} else {
 			status.MarkJournalSuccess()
 		}
@@ -117,19 +120,14 @@ func StartRetryWorker(database db.Database, cfg *config.Config, status *api.Loop
 		if err := generateJournal(database, cfg); err != nil {
 			slog.Error("Retry failed again", "error", err)
 
-			var nextRetry time.Time
-			switch job.AttemptCount {
-			case 0:
-				nextRetry = time.Now().UTC().Add(60 * time.Minute)
-			case 1:
-				nextRetry = time.Now().UTC().Add(120 * time.Minute)
-			case 2:
-				nextRetry = time.Now().UTC().Add(180 * time.Minute)
-			default:
+			// job.AttemptCount = retries already done; this failure is retry
+			// number AttemptCount+1. Give up once we hit the configured max.
+			if job.AttemptCount+1 >= cfg.Resilience.MaxJournalRetries {
 				slog.Error("Journal retry exhausted. Skipping the day.")
 				continue
 			}
 
+			nextRetry := time.Now().UTC().Add(journalRetryDelay(cfg, job.AttemptCount+1))
 			database.RequeueRetryJob(*job, nextRetry)
 		} else {
 			slog.Info("Journal Retry succeeded!")
@@ -142,6 +140,21 @@ func StartRetryWorker(database db.Database, cfg *config.Config, status *api.Loop
 // hour:minute in the local clock — today if that time hasn't passed yet,
 // otherwise tomorrow. Used to keep the journal loop pinned to a fixed
 // wall-clock time instead of drifting with container restarts.
+// journalRetryDelay returns how long to wait before journal retry number `idx`
+// (0 = the first retry, scheduled right after the nightly run fails), from
+// config.yaml resilience.retry_delay_minutes. If idx runs past the slice the
+// last configured value is reused; an empty slice falls back to 30 minutes.
+func journalRetryDelay(cfg *config.Config, idx uint) time.Duration {
+	mins := cfg.Resilience.JournalRetryDelayMinutes
+	if len(mins) == 0 {
+		return 30 * time.Minute
+	}
+	if int(idx) >= len(mins) {
+		idx = uint(len(mins) - 1)
+	}
+	return time.Duration(mins[idx]) * time.Minute
+}
+
 func durationUntilNext(hour, minute int) time.Duration {
 	now := time.Now().UTC()
 	next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, time.UTC)
@@ -221,7 +234,29 @@ func generateJournal(database db.Database, cfg *config.Config) error {
 		return err
 	}
 
-	respBytes, err := promptAgent(ctx, cfg)
+	var extraParts []*genai.Part
+
+	if ctx.ImgToday != "" {
+		data, err := api.FetchImageAsBase64(context.Background(), ctx.ImgToday)
+		if err != nil {
+			slog.Error("Failed to fetch todays image from S3", "error", err)
+			ctx.ImgToday = ""
+		} else {
+			extraParts = append(extraParts, genai.NewPartFromBytes(data, "image/jpeg"))
+		}
+	}
+
+	if ctx.ImgYesterday != "" {
+		data, err := api.FetchImageAsBase64(context.Background(), ctx.ImgYesterday)
+		if err != nil {
+			slog.Error("Failed to fetch yesterdays image from S3", "error", err)
+			ctx.ImgYesterday = ""
+		} else {
+			extraParts = append(extraParts, genai.NewPartFromBytes(data, "image/jpeg"))
+		}
+	}
+
+	respBytes, err := promptAgent(ctx, cfg, extraParts...)
 	if err != nil {
 		return err
 	}

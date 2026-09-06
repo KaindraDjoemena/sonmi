@@ -10,8 +10,8 @@
 - Vegetative Humidity Range: {{ .IdealConditions.HumidityVegPercentMin }}% to {{ .IdealConditions.HumidityVegPercentMax }}%
 - Flowering Humidity Range: {{ .IdealConditions.HumidityFlowerPercentMin }}% to {{ .IdealConditions.HumidityFlowerPercentMax }}%
 - Light Cycle: {{ .IdealConditions.LightHoursMin }} to {{ .IdealConditions.LightHoursMax }} hours/day
-- Soil pH: {{ .IdealConditions.PhMin }} to {{ .IdealConditions.PhMax }}
-- Soil Moisture Pump Trigger: below {{ .IdealConditions.MaxSoilMoisturePercent }}% (do NOT water above this threshold)
+- Soil Moisture Pump Trigger: below {{ .IdealConditions.MinSoilMoisturePercent }}%
+- Soil Moisture Hard Stop: {{ .IdealConditions.MaxSoilMoisturePercent }}% (do NOT water above this threshold)
 - Temperature Danger Ceiling: {{ .IdealConditions.MaxTemperatureC }}°C
 - Humidity Danger Ceiling: {{ .IdealConditions.MaxHumidityPercent }}%
 </ideal_conditions>

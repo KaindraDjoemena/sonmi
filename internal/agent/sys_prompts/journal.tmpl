@@ -10,8 +10,8 @@
 - Vegetative Humidity Range: {{ .IdealConditions.HumidityVegPercentMin }}% to {{ .IdealConditions.HumidityVegPercentMax }}%
 - Flowering Humidity Range: {{ .IdealConditions.HumidityFlowerPercentMin }}% to {{ .IdealConditions.HumidityFlowerPercentMax }}%
 - Light Cycle: {{ .IdealConditions.LightHoursMin }} to {{ .IdealConditions.LightHoursMax }} hours/day
-- Soil pH: {{ .IdealConditions.PhMin }} to {{ .IdealConditions.PhMax }}
-- Soil Moisture Pump Trigger: below {{ .IdealConditions.MaxSoilMoisturePercent }}% (do NOT water above this threshold)
+- Soil Moisture Pump Trigger: below {{ .IdealConditions.MinSoilMoisturePercent }}%
+- Soil Moisture Hard Stop: {{ .IdealConditions.MaxSoilMoisturePercent }}% (do NOT water above this threshold)
 - Temperature Danger Ceiling: {{ .IdealConditions.MaxTemperatureC }}°C
 - Humidity Danger Ceiling: {{ .IdealConditions.MaxHumidityPercent }}%
 </ideal_conditions>
@@ -35,6 +35,14 @@
     No Actuator Events Recorded In the Past 24 Hours
 {{ end }}
 </past_24_hours_actuator_events>
+
+<past_24_hours_system_state_changes>
+{{ range .FullDaySysLog }}
+    - Time: {{ .Time.Format "2006-01-02 15:04:05" }} | State: {{ .State }}
+{{ else }}
+    No System State Changes Recorded In the Past 24 Hours (system stayed NOMINAL)
+{{ end }}
+</past_24_hours_system_state_changes>
 
 <past_journal_entries>
 {{ range .PastJournals }}

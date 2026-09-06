@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"text/template"
 	"time"
@@ -163,23 +164,20 @@ func newCorrectionContext(d db.Database, cfg *config.Config) (*correctionContext
 	journalDegraded := false
 
 	// stale journal handling
-	if len(pastJournals) > 0 {
-		if pastJournals[0].IsStale || pastJournals[0].ValidForDate != time.Now().UTC().Format(time.DateOnly) {
+	if len(pastJournals) > 0 && !pastJournals[0].IsStale && pastJournals[0].ValidForDate == time.Now().UTC().Format(time.DateOnly) {
 
-			// stale journal
-			journalDegraded = true
-			db.SystemStateRow{State: db.StateJournalDegraded, Time: time.Now().UTC()}.Insert(d)
-		} else {
+		// fresh journal
+		todaysStrat = pastJournals[0].PlanForTomorrow
+		specialInstr = pastJournals[0].SafeDefaultsJSON
 
-			// fresh journal
-			todaysStrat = pastJournals[0].PlanForTomorrow
-			specialInstr = pastJournals[0].SafeDefaultsJSON
-
-			// if the system were previously degraded, log that we are nominal again
-			if latestSysLog.State == db.StateJournalDegraded {
-				db.SystemStateRow{State: db.StateNominal, Time: time.Now().UTC()}.Insert(d)
-			}
+		// if the system were previously degraded, log that we are nominal again
+		if latestSysLog.State == db.StateJournalDegraded {
+			db.SystemStateRow{State: db.StateNominal, Time: time.Now().UTC()}.Insert(d)
 		}
+	} else {
+		// stale journal OR no journal at all
+		journalDegraded = true
+		db.SystemStateRow{State: db.StateJournalDegraded, Time: time.Now().UTC()}.Insert(d)
 	}
 
 	telemetryLogs, err := d.SelectPastNHourTelemetryRows(1)
@@ -296,7 +294,10 @@ func promptAgent(p compilablePrompt, cfg *config.Config, extraParts ...*genai.Pa
 
 	contents := []*genai.Content{genai.NewContentFromParts(parts, "user")}
 
-	const maxRetries = 5
+	maxRetries := int(cfg.Resilience.MaxCorrectionRetries)
+	if maxRetries < 1 {
+		maxRetries = 1
+	}
 	for i := range maxRetries {
 		resp, err = client.Models.GenerateContent(ctx, modelName, contents, config)
 		if err == nil {
@@ -305,8 +306,12 @@ func promptAgent(p compilablePrompt, cfg *config.Config, extraParts ...*genai.Pa
 
 		log.Printf("Attempt %d failed: %v\n", i+1, err)
 		if i < maxRetries-1 {
-			log.Println("Waiting 30 seconds before retrying...")
-			time.Sleep(WAIT_DURATION)
+			wait := WAIT_DURATION
+			if j := cfg.Resilience.CorrectionJitterSeconds; j > 0 {
+				wait += time.Duration(rand.Intn(int(j)+1)) * time.Second
+			}
+			log.Printf("Waiting %s before retrying...\n", wait)
+			time.Sleep(wait)
 		}
 	}
 

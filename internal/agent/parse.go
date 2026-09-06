@@ -30,6 +30,7 @@ var actionMap = map[string]relayAction{
 		}
 		if len(ctx.LatestTelemetryLog) > 0 {
 			if ctx.LatestTelemetryLog[0].SoilHumidity > cfg.Ecosystem.IdealConditions.MaxSoilMoisturePercent {
+				log.Printf("Silent veto triggered: agent attempted to water, but soil is too wet (%.1f%%)", ctx.LatestTelemetryLog[0].SoilHumidity)
 				return nil
 			}
 		}
@@ -64,6 +65,7 @@ func executeCorrections(resp []byte, c api.DeviceController, database db.Databas
 	for _, correction := range corrections {
 		action, exists := actionMap[correction.Relay]
 		if !exists {
+			log.Printf("Silent veto triggered: unrecognized relay name requested by agent (%s)", correction.Relay)
 			continue
 		}
 
