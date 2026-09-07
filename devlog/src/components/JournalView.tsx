@@ -34,14 +34,14 @@ function EntryDetail({ entry, onBack }: { entry: JournalEntry, onBack?: () => vo
                 />
               </div>
               <a href={entry.img_url} target="_blank" rel="noreferrer" className="font-['Times_New_Roman',_Times,_serif] text-blue-600 underline hover:text-blue-800 block mb-2">
-                [Attached Image: snapshot_{entry.valid_for_date}.jpg]
+                [Attached Image: daily/{entry.time.substring(0, 10)}.jpg]
               </a>
             </>
           )}
           <div><strong>Capture Date:</strong> {entry.valid_for_date}</div>
         </div>
         
-        <div className="whitespace-pre-wrap w-full">
+        <div className="whitespace-pre-wrap w-full min-w-0 break-words">
           <div><strong>Botanist&apos;s Recap:</strong></div>
           <div>{entry.day_recap}</div>
           <br/>
