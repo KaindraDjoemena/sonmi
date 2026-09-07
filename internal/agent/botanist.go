@@ -146,7 +146,7 @@ type correctionContextWindow struct {
 }
 
 func newCorrectionContext(d db.Database, cfg *config.Config) (*correctionContextWindow, error) {
-	sysLogs, err := d.SelectPastNHourSystemRows(1)
+	sysLogs, err := d.SelectPastNHourSystemRows(2)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func newCorrectionContext(d db.Database, cfg *config.Config) (*correctionContext
 		db.SystemStateRow{State: db.StateJournalDegraded, Time: time.Now().UTC()}.Insert(d)
 	}
 
-	telemetryLogs, err := d.SelectPastNHourTelemetryRows(1)
+	telemetryLogs, err := d.SelectPastNHourTelemetryRows(2)
 	if err != nil {
 		return nil, err
 	}

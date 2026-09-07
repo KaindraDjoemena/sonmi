@@ -123,7 +123,7 @@ func (d Database) SelectPastNHourTelemetryRows(n uint) ([]SensorTelemetryRow, er
 	cutoff := time.Now().UTC().Add(-time.Duration(n) * time.Hour)
 	cutoffStr := FormatTime(cutoff)
 
-	query := fmt.Sprintf(`SELECT id, temp, air_humidity, soil_humidity, time FROM %s WHERE time >= ? ORDER BY time DESC`, TableSensorTelemetries)
+	query := fmt.Sprintf(`SELECT id, temp, air_humidity, soil_humidity, time FROM %s WHERE time >= ? ORDER BY time DESC, id DESC`, TableSensorTelemetries)
 
 	rows, err := d.conn.Query(query, cutoffStr)
 	if err != nil {
@@ -195,7 +195,7 @@ func (d Database) SelectPastNHourRelayEventRows(n uint) ([]RelayEventRow, error)
 	cutoff := time.Now().UTC().Add(-time.Duration(n) * time.Hour)
 	cutoffStr := FormatTime(cutoff)
 
-	query := fmt.Sprintf(`SELECT id, relay, mode, value, rationale, time FROM %s WHERE time >= ? ORDER BY time DESC`, TableRelayEvents)
+	query := fmt.Sprintf(`SELECT id, relay, mode, value, rationale, time FROM %s WHERE time >= ? ORDER BY time DESC, id DESC`, TableRelayEvents)
 
 	rows, err := d.conn.Query(query, cutoffStr)
 	if err != nil {
@@ -241,7 +241,7 @@ func (d Database) SelectPastNHourRelayEventRows(n uint) ([]RelayEventRow, error)
 // "last changed" display at startup rather than showing "never" until the
 // first live RelayState message arrives this session.
 func (d Database) GetLastKnownRelayStateWithTime(relay Relay_t) (bool, time.Time) {
-	query := fmt.Sprintf(`SELECT value, time FROM %s WHERE relay = ? ORDER BY time DESC LIMIT 1`, TableRelayEvents)
+	query := fmt.Sprintf(`SELECT value, time FROM %s WHERE relay = ? ORDER BY time DESC, id DESC LIMIT 1`, TableRelayEvents)
 
 	var value bool
 	var tempTime string
@@ -286,7 +286,7 @@ func (d Database) SelectPastNHourSystemRows(n uint) ([]SystemStateRow, error) {
 	cutoff := time.Now().UTC().Add(-time.Duration(n) * time.Hour)
 	cutoffStr := FormatTime(cutoff)
 
-	query := fmt.Sprintf(`SELECT id, state, time FROM %s WHERE time >= ? ORDER BY time DESC`, TableSystemStates)
+	query := fmt.Sprintf(`SELECT id, state, time FROM %s WHERE time >= ? ORDER BY time DESC, id DESC`, TableSystemStates)
 
 	rows, err := d.conn.Query(query, cutoffStr)
 	if err != nil {
@@ -325,7 +325,7 @@ func (d Database) SelectPastNHourSystemRows(n uint) ([]SystemStateRow, error) {
 }
 
 func (d Database) SelectCurrentSystemState() (SystemStateRow, error) {
-	query := fmt.Sprintf(`SELECT id, state, time FROM %s ORDER BY time DESC LIMIT 1`, TableSystemStates)
+	query := fmt.Sprintf(`SELECT id, state, time FROM %s ORDER BY time DESC, id DESC LIMIT 1`, TableSystemStates)
 
 	var systemStateRow SystemStateRow
 	var tempTime string
@@ -379,7 +379,7 @@ func (d Database) SelectPastNDayJournalEntryRows(n uint) ([]JournalEntryRow, err
 	cutoff := time.Now().UTC().Add(-time.Duration(24*n) * time.Hour)
 	cutoffStr := FormatTime(cutoff)
 
-	query := fmt.Sprintf(`SELECT id, day_recap, plan_for_tomorrow, safe_defaults_json, agent_musings, is_stale, valid_for_date, img_url, time from %s WHERE time >= ? ORDER BY time DESC`, TableJournalEntries)
+	query := fmt.Sprintf(`SELECT id, day_recap, plan_for_tomorrow, safe_defaults_json, agent_musings, is_stale, valid_for_date, img_url, time from %s WHERE time >= ? ORDER BY time DESC, id DESC`, TableJournalEntries)
 
 	rows, err := d.conn.Query(query, cutoffStr)
 	if err != nil {
@@ -425,7 +425,7 @@ func (d Database) SelectPastNDayJournalEntryRows(n uint) ([]JournalEntryRow, err
 
 func (d Database) SelectLatestNJournalEntryRows(n uint) ([]JournalEntryRow, error) {
 	query := fmt.Sprintf(
-		`SELECT id, day_recap, plan_for_tomorrow, safe_defaults_json, agent_musings, is_stale, valid_for_date, img_url, time FROM %s ORDER BY time DESC LIMIT ?`,
+		`SELECT id, day_recap, plan_for_tomorrow, safe_defaults_json, agent_musings, is_stale, valid_for_date, img_url, time FROM %s ORDER BY time DESC, id DESC LIMIT ?`,
 		TableJournalEntries,
 	)
 

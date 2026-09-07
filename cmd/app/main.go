@@ -94,7 +94,6 @@ func main() {
 	// S3  must be initialised before the snapshot ticker starts
 	if err := api.InitS3Client(); err != nil {
 		log.Printf("Warning: Failed to initialise S3 client, daily snapshot ticker will not start: %v", err)
-		os.Exit(1)
 	} else {
 		go api.StartDailySnapshotTicker(snapshotFramePipe, dbConn)
 		go api.StartDBBackupTicker(dbConn)
