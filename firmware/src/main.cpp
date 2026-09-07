@@ -199,7 +199,7 @@ void setupWiFi()
 }
 
 // --- STATE & COMMAND HANDLING ---
-String currentMode  = "NOMINAL";
+String currentMode  = "OVERRIDE";
 u32 pumpStartTimeMS = 0;
 u32 pumpDurationMS  = 0;
 bool isPumpRunning  = false;
@@ -286,6 +286,18 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
     }
 }
 
+void heartbeat()
+{
+    static u32 lastBlinkTimeMS = 0;
+    static bool state = false;
+    if (millis() - lastBlinkTimeMS >= 0.5 * Time::SECOND)
+    {
+        state = !state;
+        digitalWrite(BLINKING_PIN, state ? LOW : HIGH);
+        lastBlinkTimeMS = millis();
+    }
+}
+
 void reconnectMQTT()
 {
     while (!mqtt.connected())
@@ -301,7 +313,12 @@ void reconnectMQTT()
             Serial.print("failed, rc=");
             Serial.print(mqtt.state());
             Serial.println(" try again in 5 seconds");
-            delay(5000);
+            // ~5s wait, but keep the heartbeat alive and feed the task WDT.
+            for (int i = 0; i < 50; i++)
+            {
+                heartbeat();
+                delay(100);
+            }
         }
     }
 }
@@ -365,6 +382,8 @@ void publishTelemetry()
 
 void loop()
 {
+    heartbeat();
+
     if (!mqtt.connected())
     {
         reconnectMQTT();

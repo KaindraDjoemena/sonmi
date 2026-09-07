@@ -133,7 +133,7 @@ void uploadPhoto()
         Serial.printf("Uploading %u bytes to %s\n", fb->len, SERVER_URL);
         http.begin(SERVER_URL);
         http.addHeader("Content-Type", "image/jpeg");
-        http.addHeader("Authentication-Key", MEDIA_AUTH_KEY);
+        http.addHeader("Authentication-Key", CAMERA_AUTH_KEY);
 
         int httpResponseCode = http.POST(fb->buf, fb->len);
 

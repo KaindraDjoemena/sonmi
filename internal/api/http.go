@@ -24,7 +24,7 @@ type MediaServer struct {
 }
 
 func (ms *MediaServer) postFrame(w http.ResponseWriter, r *http.Request) {
-	if !isAuthorized(r.Header, AUTH_HEADER_FIELD, os.Getenv("MEDIA_AUTH_KEY")) {
+	if !isAuthorized(r.Header, AUTH_HEADER_FIELD, os.Getenv("CAMERA_AUTH_KEY")) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -52,7 +52,7 @@ type journalAPIResponse struct {
 }
 
 func (ms *MediaServer) getJournals(w http.ResponseWriter, r *http.Request) {
-	if !isAuthorized(r.Header, AUTH_HEADER_FIELD, os.Getenv("MEDIA_AUTH_KEY")) {
+	if !isAuthorized(r.Header, AUTH_HEADER_FIELD, os.Getenv("DEVLOG_AUTH_KEY")) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}

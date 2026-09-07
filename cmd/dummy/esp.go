@@ -63,13 +63,13 @@ func startDummyStream(folderPath string, serverAddr string, interval time.Durati
 			continue
 		}
 
-		req, err := http.NewRequest(http.MethodPost, serverAddr+"/stream", bytes.NewReader(data))
+		req, err := http.NewRequest(http.MethodPost, serverAddr+"/frame-stream", bytes.NewReader(data))
 		if err != nil {
 			log.Fatalln("Stream: failed to create request:", err)
 			time.Sleep(interval)
 			continue
 		}
-		req.Header.Set(api.AUTH_HEADER_FIELD, os.Getenv("MEDIA_AUTH_KEY"))
+		req.Header.Set(api.AUTH_HEADER_FIELD, os.Getenv("CAMERA_AUTH_KEY"))
 		req.Header.Set("Content-Type", "image/jpeg")
 
 		resp, err := http.DefaultClient.Do(req)
