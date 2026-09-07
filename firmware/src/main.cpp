@@ -213,7 +213,7 @@ void publishRelayState(const char* relay, bool state, const char* mode)
 
     char buffer[128];
     serializeJson(doc, buffer);
-    if (mqtt.publish(TOPIC_RELAY_STATE, buffer))
+    if (mqtt.publish(TOPIC_RELAY_STATE, buffer, false, 1))
     {
         Serial.printf("Published relay state: %s\n", buffer);
     }
@@ -351,6 +351,7 @@ void setup()
     setupWiFi();
     mqtt.setServer(MQTT_BROKER, MQTT_PORT);
     mqtt.setCallback(mqttCallback);
+    mqtt.setBufferSize(512);
 }
 
 void publishTelemetry()
@@ -367,10 +368,10 @@ void publishTelemetry()
     relays["intakeFan"]  = digitalRead(static_cast<u8>(RelayPins::INTAKE_FAN)) == LOW;
     relays["exhaustFan"] = digitalRead(static_cast<u8>(RelayPins::EXHAUST_FAN)) == LOW;
     
-    char buffer[384];
+    char buffer[512];
     serializeJson(doc, buffer);
     
-    if (mqtt.publish(TOPIC_TELEMETRY, buffer))
+    if (mqtt.publish(TOPIC_TELEMETRY, buffer, false, 1))
     {
         Serial.printf("Published telemetry: %s\n", buffer);
     } 
