@@ -229,7 +229,13 @@ func generateJournal(database db.Database, cfg *config.Config) error {
 		return err
 	}
 
-	ctx, err := newJournalContext(database, cfg)
+	// Capture the reference time once. The loop fires at 23:59 UTC and the LLM
+	// round-trip routinely pushes executeJournal past midnight; recomputing
+	// "today" independently there would look up tomorrow's (non-existent) daily
+	// photo and stamp valid_for_date a day ahead.
+	now := time.Now().UTC()
+
+	ctx, err := newJournalContext(database, cfg, now)
 	if err != nil {
 		return err
 	}
@@ -261,5 +267,5 @@ func generateJournal(database db.Database, cfg *config.Config) error {
 		return err
 	}
 
-	return executeJournal(respBytes, database)
+	return executeJournal(respBytes, database, now)
 }

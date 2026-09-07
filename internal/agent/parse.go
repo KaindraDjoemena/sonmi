@@ -86,16 +86,22 @@ type journalResponse struct {
 	AgentMusings     string `json:"agent_musings"`
 }
 
-func executeJournal(resp []byte, database db.Database) error {
+func executeJournal(resp []byte, database db.Database, now time.Time) error {
 	var journalResponse journalResponse
 	if err := json.Unmarshal(resp, &journalResponse); err != nil {
 		return err
 	}
 
-	// Look up today's photo URL from the daily_photos table.
-	// If not found yet (ticker hasn't fired, or S3 not configured), leave ImgUrl empty.
+	// Look up the daily photo for this journal's reference day. The snapshot
+	// ticker keys the photo on its own 23:55 UTC wall-clock date; if generation
+	// crossed midnight, now is already the next day, so fall back one day.
+	// Leave ImgUrl empty if neither is present (ticker hasn't fired, or S3 not
+	// configured).
 	imgUrl := ""
-	photoRow, err := database.SelectDailyPhoto(time.Now().UTC().Format(time.DateOnly))
+	photoRow, err := database.SelectDailyPhoto(now.UTC().Format(time.DateOnly))
+	if errors.Is(err, sql.ErrNoRows) {
+		photoRow, err = database.SelectDailyPhoto(now.UTC().AddDate(0, 0, -1).Format(time.DateOnly))
+	}
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		log.Printf("Warning: failed to look up today's daily photo: %v", err)
 	} else if err == nil {
@@ -108,9 +114,9 @@ func executeJournal(resp []byte, database db.Database) error {
 		SafeDefaultsJSON: journalResponse.SafeDefaultsJSON,
 		AgentMusings:     journalResponse.AgentMusings,
 		IsStale:          false,
-		ValidForDate:     time.Now().UTC().Add(24 * time.Hour).Format(time.DateOnly),
+		ValidForDate:     now.UTC().Add(24 * time.Hour).Format(time.DateOnly),
 		ImgUrl:           imgUrl,
-		Time:             time.Now().UTC(),
+		Time:             now.UTC(),
 	}
 
 	if err := journalEntry.Insert(database); err != nil {

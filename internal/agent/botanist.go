@@ -43,7 +43,7 @@ type journalContextWindow struct {
 	ImgToday             string                  // t(0) plant image
 }
 
-func newJournalContext(d db.Database, cfg *config.Config) (*journalContextWindow, error) {
+func newJournalContext(d db.Database, cfg *config.Config, now time.Time) (*journalContextWindow, error) {
 	relayEventLogs, err := d.SelectPastNHourRelayEventRows(24)
 	if err != nil {
 		return nil, err
@@ -64,8 +64,8 @@ func newJournalContext(d db.Database, cfg *config.Config) (*journalContextWindow
 		return nil, err
 	}
 
-	today := time.Now().UTC().Format(time.DateOnly)
-	yesterday := time.Now().UTC().AddDate(0, 0, -1).Format(time.DateOnly)
+	today := now.UTC().Format(time.DateOnly)
+	yesterday := now.UTC().AddDate(0, 0, -1).Format(time.DateOnly)
 
 	imgToday := ""
 	if row, err := d.SelectDailyPhoto(today); err == nil {
